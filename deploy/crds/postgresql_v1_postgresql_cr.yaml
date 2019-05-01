@@ -1,0 +1,7 @@
+apiVersion: postgresql.openshift.com/v1
+kind: PostgreSQL
+metadata:
+  name: postgresql-node
+spec:
+  # Add fields here
+  size: 3
