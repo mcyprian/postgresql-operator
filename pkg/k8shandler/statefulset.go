@@ -1,7 +1,7 @@
 package k8shandler
 
 import (
-	postgresqlv1 "github.com/mcyprian/postgresql-operator/pkg/apis/postgresql/v1"
+	api "github.com/mcyprian/postgresql-operator/pkg/apis/postgresql/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -10,8 +10,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-// CreateStatefulSet returns a postgresql StatefulSet object
-func CreateStatefulSet(p *postgresqlv1.PostgreSQL, ctlscheme *runtime.Scheme) *appsv1.StatefulSet {
+// NewStatefulSet returns a postgresql StatefulSet object
+func NewStatefulSet(p *api.PostgreSQL, ctlscheme *runtime.Scheme) *appsv1.StatefulSet {
 	labels := NewLabels("postgresql", p.Name)
 	replicas := p.Spec.Size
 
@@ -37,6 +37,10 @@ func CreateStatefulSet(p *postgresqlv1.PostgreSQL, ctlscheme *runtime.Scheme) *a
 					Containers: []corev1.Container{newPostgreSQLContainer()},
 				},
 			},
+			UpdateStrategy: appsv1.StatefulSetUpdateStrategy{
+				Type:          appsv1.RollingUpdateStatefulSetStrategyType,
+				RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{},
+			},
 		},
 	}
 	// Set PostgreSQL instance as the owner and controller
@@ -48,11 +52,11 @@ func CreateStatefulSet(p *postgresqlv1.PostgreSQL, ctlscheme *runtime.Scheme) *a
 
 func newPostgreSQLContainer() corev1.Container {
 	return corev1.Container{
-		Image:   "mcyprian/postgresql-10-fedora29",
+		Image:   defaultPgImage,
 		Name:    "postgresql",
-		Command: []string{"run-postgresql"},
+		Command: []string{defaultCntCommand},
 		Ports: []corev1.ContainerPort{{
-			ContainerPort: 5432,
+			ContainerPort: postgresqlPort,
 			Name:          "postgresql",
 		}},
 		ReadinessProbe: &corev1.Probe{
@@ -61,7 +65,7 @@ func newPostgreSQLContainer() corev1.Container {
 			PeriodSeconds:       5,
 			Handler: corev1.Handler{
 				Exec: &corev1.ExecAction{
-					Command: []string{"/usr/libexec/check-container"},
+					Command: []string{defaultHealthCheckCommand},
 				},
 			},
 		},
@@ -80,12 +84,8 @@ func newPostgreSQLContainer() corev1.Container {
 				Value: "db",
 			},
 			corev1.EnvVar{
-				Name:  "STANDBY",
-				Value: "false",
-			},
-			corev1.EnvVar{
-				Name:  "ENABLE_REPLICATION",
-				Value: "true",
+				Name:  "POSTGRESQL_MASTER_SERVICE_NAME",
+				Value: "postgresql.postgresql-node-0",
 			},
 		},
 	}

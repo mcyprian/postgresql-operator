@@ -101,11 +101,18 @@ func (r *ReconcilePostgreSQL) Reconcile(request reconcile.Request) (reconcile.Re
 		return reconcile.Result{}, err
 	}
 
+	reqLogger.Info("Running create or update for Service")
+	err = k8shander.CreateOrUpdateService(postgresql, r.client)
+	if err != nil {
+		reqLogger.Info("Failed to create of update Service")
+		return reconcile.Result{}, err
+	}
+
 	found := &appsv1.StatefulSet{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: postgresql.Name, Namespace: postgresql.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
 		// Define a new set
-		set := k8shander.CreateStatefulSet(postgresql, r.scheme)
+		set := k8shander.NewStatefulSet(postgresql, r.scheme)
 		reqLogger.Info("Creating a new StatefulSet", "StatefulSet.Namespace", set.Namespace, "StatefulSet.Name", set.Name)
 		err = r.client.Create(context.TODO(), set)
 		if err != nil {
