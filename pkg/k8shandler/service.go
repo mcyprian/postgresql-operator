@@ -25,7 +25,8 @@ func newHeadlessService(p *api.PostgreSQL) *corev1.Service {
 			Labels:    NewLabels("postgresql", p.Name),
 		},
 		Spec: corev1.ServiceSpec{
-			Selector: selectorForPg("postgresql"),
+			ClusterIP: "None",
+			Selector:  selectorForPg("postgresql"),
 			Ports: []corev1.ServicePort{
 				corev1.ServicePort{
 					Port:     postgresqlPort,

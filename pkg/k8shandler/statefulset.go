@@ -30,7 +30,8 @@ func newStatefulSet(p *api.PostgreSQL, scheme *runtime.Scheme) *appsv1.StatefulS
 			Namespace: p.Namespace,
 		},
 		Spec: appsv1.StatefulSetSpec{
-			Replicas: &replicas,
+			ServiceName: "postgresql",
+			Replicas:    &replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
@@ -59,11 +60,11 @@ func newPostgreSQLContainer() corev1.Container {
 	return corev1.Container{
 		Image:   defaultPgImage,
 		Name:    "postgresql",
-		Command: []string{"statefulset-startup"},
+		Command: []string{defaultCntCommand},
 		//Lifecycle: &corev1.Lifecycle{
 		//	PostStart: &corev1.Handler{
 		//		Exec: &corev1.ExecAction{
-		//			Command: []string{"repmgr-register"},
+		//			Command: []string{"shell-entrypoint", "repmgr-register"},
 		//		},
 		//	},
 		//},
