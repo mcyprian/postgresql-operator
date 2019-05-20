@@ -61,13 +61,6 @@ func newPostgreSQLContainer() corev1.Container {
 		Image:   defaultPgImage,
 		Name:    "postgresql",
 		Command: []string{defaultCntCommand},
-		//Lifecycle: &corev1.Lifecycle{
-		//	PostStart: &corev1.Handler{
-		//		Exec: &corev1.ExecAction{
-		//			Command: []string{"shell-entrypoint", "repmgr-register"},
-		//		},
-		//	},
-		//},
 		Ports: []corev1.ContainerPort{{
 			ContainerPort: postgresqlPort,
 			Name:          "postgresql",

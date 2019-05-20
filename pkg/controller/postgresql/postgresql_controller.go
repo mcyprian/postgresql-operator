@@ -2,6 +2,7 @@ package postgresql
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	api "github.com/mcyprian/postgresql-operator/pkg/apis/postgresql/v1"
@@ -10,6 +11,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -29,6 +32,7 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
+
 	return &ReconcilePostgreSQL{client: mgr.GetClient(), scheme: mgr.GetScheme()}
 }
 
@@ -65,8 +69,10 @@ var _ reconcile.Reconciler = &ReconcilePostgreSQL{}
 type ReconcilePostgreSQL struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
+	client     client.Client
+	scheme     *runtime.Scheme
+	restConfig *rest.Config
+	clientset  *kubernetes.Clientset
 }
 
 // Reconcile reads that state of the cluster for a PostgreSQL object and makes changes based on the state read
@@ -125,6 +131,34 @@ func (r *ReconcilePostgreSQL) Reconcile(request reconcile.Request) (reconcile.Re
 		if err != nil {
 			reqLogger.Error(err, "Failed to update PostgreSQL status")
 			return reconcile.Result{}, err
+		}
+	}
+	var clientset *kubernetes.Clientset
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		reqLogger.Error(err, "Failed to create config")
+		return reconcile.Result{}, err
+	} else {
+		clientset, err = kubernetes.NewForConfig(config)
+		if err != nil {
+			reqLogger.Error(err, "Failed to create clientset")
+			return reconcile.Result{}, err
+		}
+	}
+	masterPod := "postgresql-node-0"
+	pod := &corev1.Pod{}
+	err = r.client.Get(context.TODO(), client.ObjectKey{Namespace: p.Namespace, Name: masterPod}, pod)
+	if err != nil {
+		reqLogger.Error(err, "Failed to get master pod")
+		return reconcile.Result{}, err
+	} else {
+		execCommand := []string{"shell-entrypoint", "repmgr-register"}
+		stdout, stderr, err := k8shander.ExecToPodThroughAPI(config, clientset, execCommand, pod.Spec.Containers[0].Name, masterPod, p.Namespace, nil)
+		if err != nil {
+			reqLogger.Error(err, fmt.Sprintf("Repmgr register failed, stdout: %v, stderr: %v", stdout, stderr))
+			return reconcile.Result{}, err
+		} else {
+			reqLogger.Info("Repmgr register executed", stdout, stderr)
 		}
 	}
 
