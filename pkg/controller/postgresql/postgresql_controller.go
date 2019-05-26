@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 
 	api "github.com/mcyprian/postgresql-operator/pkg/apis/postgresql/v1"
 	k8shander "github.com/mcyprian/postgresql-operator/pkg/k8shandler"
@@ -32,8 +33,18 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
+	var clientset *kubernetes.Clientset
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		log.Error(err, "Failed to create rest config")
+	} else {
+		clientset, err = kubernetes.NewForConfig(config)
+		if err != nil {
+			log.Error(err, "Failed to create clientset")
+		}
+	}
 
-	return &ReconcilePostgreSQL{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	return &ReconcilePostgreSQL{client: mgr.GetClient(), scheme: mgr.GetScheme(), restConfig: config, clientset: clientset}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -133,33 +144,29 @@ func (r *ReconcilePostgreSQL) Reconcile(request reconcile.Request) (reconcile.Re
 			return reconcile.Result{}, err
 		}
 	}
-	var clientset *kubernetes.Clientset
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		reqLogger.Error(err, "Failed to create config")
-		return reconcile.Result{}, err
-	} else {
-		clientset, err = kubernetes.NewForConfig(config)
-		if err != nil {
-			reqLogger.Error(err, "Failed to create clientset")
-			return reconcile.Result{}, err
+
+	// Register nodes which were not registered to repmgr cluster yet
+	repmgrClusterUp := true
+	if int32(len(podList.Items)) != p.Spec.Size {
+		repmgrClusterUp = false
+	}
+	for _, pod := range podList.Items {
+		if !isReady(pod) {
+			repmgrClusterUp = false
+		} else {
+			registered, _ := isRegistered(p, r.restConfig, r.clientset, pod)
+			if !registered {
+				err = repmgrRegister(p, r.restConfig, r.clientset, pod)
+				if err != nil {
+					reqLogger.Error(err, "Repmgr register failed")
+					return reconcile.Result{}, err
+				}
+				repmgrClusterUp = false
+			}
 		}
 	}
-	masterPod := "postgresql-node-0"
-	pod := &corev1.Pod{}
-	err = r.client.Get(context.TODO(), client.ObjectKey{Namespace: p.Namespace, Name: masterPod}, pod)
-	if err != nil {
-		reqLogger.Error(err, "Failed to get master pod")
-		return reconcile.Result{}, err
-	} else {
-		execCommand := []string{"shell-entrypoint", "repmgr-register"}
-		stdout, stderr, err := k8shander.ExecToPodThroughAPI(config, clientset, execCommand, pod.Spec.Containers[0].Name, masterPod, p.Namespace, nil)
-		if err != nil {
-			reqLogger.Error(err, fmt.Sprintf("Repmgr register failed, stdout: %v, stderr: %v", stdout, stderr))
-			return reconcile.Result{}, err
-		} else {
-			reqLogger.Info("Repmgr register executed", stdout, stderr)
-		}
+	if !repmgrClusterUp {
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	return reconcile.Result{}, nil
@@ -172,4 +179,43 @@ func getPodNames(pods []corev1.Pod) []string {
 		podNames = append(podNames, pod.Name)
 	}
 	return podNames
+}
+
+// isReady determines whether pod status is Ready
+func isReady(pod corev1.Pod) bool {
+	for _, cond := range pod.Status.Conditions {
+		if cond.Type == "Ready" && cond.Status == "True" {
+			return true
+		}
+	}
+	return false
+}
+
+// isRegistered determines whether repmgr node was successfuly registered
+func isRegistered(p *api.PostgreSQL, config *rest.Config, clientset *kubernetes.Clientset, pod corev1.Pod) (bool, error) {
+	execCommand := []string{"shell-entrypoint", "repmgr", "node", "check"}
+	stdout, stderr, err := k8shander.ExecToPodThroughAPI(config, clientset, execCommand, pod.Spec.Containers[0].Name, pod.Name, p.Namespace, nil)
+	if err != nil {
+		log.Info(fmt.Sprintf("Repmgr node check returned non-zero exit status, stdout: %v, stderr: %v", stdout, stderr))
+		return false, err
+	} else {
+		log.Info("Repmgr node check executed", stdout, stderr)
+		if strings.Contains(stdout, "OK") {
+			return true, nil
+		} else {
+			return false, nil
+		}
+	}
+}
+
+func repmgrRegister(p *api.PostgreSQL, config *rest.Config, clientset *kubernetes.Clientset, pod corev1.Pod) error {
+	execCommand := []string{"shell-entrypoint", "repmgr-register"}
+	stdout, stderr, err := k8shander.ExecToPodThroughAPI(config, clientset, execCommand, pod.Spec.Containers[0].Name, pod.Name, p.Namespace, nil)
+	if err != nil {
+		log.Error(err, fmt.Sprintf("Repmgr register failed, stdout: %v, stderr: %v", stdout, stderr))
+		return err
+	} else {
+		log.Info("Repmgr register executed", stdout, stderr)
+	}
+	return nil
 }
