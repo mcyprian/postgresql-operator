@@ -108,6 +108,13 @@ func (r *ReconcilePostgreSQL) Reconcile(request reconcile.Request) (reconcile.Re
 		return reconcile.Result{}, err
 	}
 
+	reqLogger.Info("Running create or update for Secret")
+	err = k8shander.CreateOrUpdateSecret(p, r.client)
+	if err != nil {
+		reqLogger.Error(err, "Failed to create of update Secret")
+		return reconcile.Result{}, err
+	}
+
 	reqLogger.Info("Running create or update for StatefulSet")
 	requeue, err := k8shander.CreateOrUpdateStatefulSet(p, r.client, r.scheme)
 	if err != nil {

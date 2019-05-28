@@ -82,8 +82,13 @@ func newPostgreSQLContainer() corev1.Container {
 				Value: "user",
 			},
 			corev1.EnvVar{
-				Name:  "POSTGRESQL_PASSWORD",
-				Value: "secretpassword",
+				Name: "POSTGRESQL_PASSWORD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{Name: "postgresql-node"},
+						Key:                  "database-password",
+					},
+				},
 			},
 			corev1.EnvVar{
 				Name:  "POSTGRESQL_DATABASE",
