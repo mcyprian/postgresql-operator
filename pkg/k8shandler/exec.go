@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"io"
 
-	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -14,6 +13,7 @@ import (
 
 // ExecToPodThroughAPI uninterractively exec to the pod with the command specified.
 func ExecToPodThroughAPI(config *rest.Config, clientset *kubernetes.Clientset, command []string, containerName, podName, namespace string, stdin io.Reader) (string, string, error) {
+	reqLogger := log.WithValues("Request.Namespace", namespace)
 	req := clientset.Core().RESTClient().Post().
 		Resource("pods").
 		Name(podName).
@@ -21,7 +21,7 @@ func ExecToPodThroughAPI(config *rest.Config, clientset *kubernetes.Clientset, c
 		SubResource("exec")
 	scheme := runtime.NewScheme()
 	if err := corev1.AddToScheme(scheme); err != nil {
-		log.Error(err)
+		reqLogger.Error(err, "Failed to register scheme.")
 		return "", "", err
 	}
 
@@ -35,11 +35,11 @@ func ExecToPodThroughAPI(config *rest.Config, clientset *kubernetes.Clientset, c
 		TTY:       false,
 	}, parameterCodec)
 
-	log.Debugf("Request URL: %s", req.URL().String())
+	reqLogger.Info("Request URL:", req.URL().String())
 
 	exec, err := remotecommand.NewSPDYExecutor(config, "POST", req.URL())
 	if err != nil {
-		log.Error(err)
+		reqLogger.Error(err, "Remote command execution failed.")
 		return "", "", err
 	}
 
@@ -51,7 +51,7 @@ func ExecToPodThroughAPI(config *rest.Config, clientset *kubernetes.Clientset, c
 		Tty:    false,
 	})
 	if err != nil {
-		log.Error(err)
+		reqLogger.Error(err, "Streaming exec output failed.")
 		return stdout.String(), stderr.String(), err
 	}
 
