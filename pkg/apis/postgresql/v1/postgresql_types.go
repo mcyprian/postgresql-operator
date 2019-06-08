@@ -4,15 +4,22 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+type ManagementState string
+
+const (
+	// Managed means that the operator is actively managing its resources and trying to keep the component active.
+	ManagementStateManaged = "Managed"
+	// Unmanaged means that the operator will not take any action related to the component
+	ManagementStateUnmanaged = "Unmanaged"
+)
 
 // PostgreSQLSpec defines the desired state of PostgreSQL
 // +k8s:openapi-gen=true
 type PostgreSQLSpec struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
-	Size int32 `json:"size"`
+	ManagementState ManagementState `json:"managementState"`
+	Size            int32           `json:"size"`
 }
 
 // PostgreSQLStatus defines the observed state of PostgreSQL

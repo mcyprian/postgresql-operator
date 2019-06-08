@@ -3,5 +3,5 @@ kind: PostgreSQL
 metadata:
   name: postgresql-node
 spec:
-  # Add fields here
-  size: 2
+  managementState: Managed
+  size: 3
