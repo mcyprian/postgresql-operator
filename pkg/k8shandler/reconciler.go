@@ -42,23 +42,31 @@ func Reconcile(request *PostgreSQLRequest) (bool, error) {
 	reqLogger.Info("Reconciling PostgreSQL")
 
 	reqLogger.Info("Running create or update for Secret")
-	err := CreateOrUpdateSecret(request.cluster, request.client)
+	err := CreateOrUpdateSecret(request)
 	if err != nil {
 		reqLogger.Error(err, "Failed to create of update Secret")
 		return true, err
 	}
 
 	reqLogger.Info("Running create or update for StatefulSet")
-	requeue, err := CreateOrUpdateStatefulSet(request.cluster, request.client, request.scheme)
+	requeue, err := CreateOrUpdateStatefulSet(request)
 	if err != nil {
 		reqLogger.Error(err, "Failed to create of update StatefulSet")
 		return true, err
 	} else if requeue {
 		return true, nil
 	}
+	//reqLogger.Info("Running create or update for Cluster")
+	//requeue, err := CreateOrUpdateCluster(request)
+	//if err != nil {
+	//	reqLogger.Error(err, "Failed to create of update Cluster")
+	//	return true, err
+	//} else if requeue {
+	//	return true, nil
+	//}
 
 	reqLogger.Info("Running create or update for Service")
-	err = CreateOrUpdateService(request.cluster, request.client)
+	err = CreateOrUpdateService(request)
 	if err != nil {
 		reqLogger.Error(err, "Failed to create of update Service")
 		return true, err
@@ -86,7 +94,7 @@ func Reconcile(request *PostgreSQLRequest) (bool, error) {
 	}
 	// Register nodes which were not registered to repmgr cluster yet
 	repmgrClusterUp := true
-	if int32(len(podList.Items)) != request.cluster.Spec.Size {
+	if len(podList.Items) != len(request.cluster.Spec.Nodes) {
 		repmgrClusterUp = false
 	}
 	for _, pod := range podList.Items {

@@ -3,5 +3,35 @@ kind: PostgreSQL
 metadata:
   name: postgresql-node
 spec:
-  managementState: Managed
-  size: 3
+  managementState: managed
+  nodes:
+    - genUUID: "postgresql-node-0"
+      role: master
+      image: "mcyprian/postgresql-10-fedora29"
+      resources:
+        limits:
+          memory: 1Gi
+        requests:
+          memory: 512Mi
+      storage:
+        emptyDir: {}
+    - genUUID: "postgresql-node-1"
+      role: standby
+      image: "mcyprian/postgresql-10-fedora29"
+      resources:
+        limits:
+          memory: 1Gi
+        requests:
+          memory: 512Mi
+      storage:
+        emptyDir: {}
+    - genUUID: "postgresql-node-2"
+      role: standby
+      image: "mcyprian/postgresql-10-fedora29"
+      resources:
+        limits:
+          memory: 1Gi
+        requests:
+          memory: 512Mi
+      storage:
+        emptyDir: {}

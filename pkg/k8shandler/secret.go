@@ -3,24 +3,23 @@ package k8shandler
 import (
 	"context"
 	"fmt"
-	api "github.com/mcyprian/postgresql-operator/pkg/apis/postgresql/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func newSecret(p *api.PostgreSQL, secretName string) *corev1.Secret {
-	return &corev1.Secret{
+func newSecret(request *PostgreSQLRequest, name string) *corev1.Secret {
+	secret := &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: corev1.SchemeGroupVersion.String(),
 			Kind:       "Secret",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretName,
-			Namespace: p.Namespace,
+			Name:      name,
+			Namespace: request.cluster.Namespace,
 		},
 		StringData: map[string]string{
 			"database-user":     "${POSTGRESQL_USER}",
@@ -28,14 +27,17 @@ func newSecret(p *api.PostgreSQL, secretName string) *corev1.Secret {
 			"database-name":     "${POSTGRESQL_DATABASE}",
 		},
 	}
+	// Set PostgreSQL instance as the owner and controller
+	controllerutil.SetControllerReference(request.cluster, secret, request.scheme)
+	return secret
 }
 
 // CreateOrUpdateSecret creates a new Secret if doesn't exists and ensures all its
 // attributes has desired values
-func CreateOrUpdateSecret(p *api.PostgreSQL, client client.Client) error {
-	secret := newSecret(p, p.Name)
+func CreateOrUpdateSecret(request *PostgreSQLRequest) error {
+	secret := newSecret(request, "postgresql")
 
-	err := client.Create(context.TODO(), secret)
+	err := request.client.Create(context.TODO(), secret)
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("Failure constructing %v secret: %v", secret.Name, err)
@@ -43,7 +45,7 @@ func CreateOrUpdateSecret(p *api.PostgreSQL, client client.Client) error {
 
 		current := secret.DeepCopy()
 		retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			if err = client.Get(context.TODO(), types.NamespacedName{Name: p.Name, Namespace: p.Namespace}, current); err != nil {
+			if err = request.client.Get(context.TODO(), types.NamespacedName{Name: request.cluster.Name, Namespace: request.cluster.Namespace}, current); err != nil {
 				if errors.IsNotFound(err) {
 					// the object doesn't exist -- it was likely culled
 					// recreate it on the next time through if necessary
@@ -53,7 +55,7 @@ func CreateOrUpdateSecret(p *api.PostgreSQL, client client.Client) error {
 			}
 
 			current.StringData = secret.StringData
-			if err = client.Update(context.TODO(), current); err != nil {
+			if err = request.client.Update(context.TODO(), current); err != nil {
 				return err
 			}
 			return nil
