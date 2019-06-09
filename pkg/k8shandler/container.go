@@ -5,7 +5,7 @@ import (
 )
 
 // newDeployment returns a container object for postgresql pod
-func newPostgreSQLContainer(name string) corev1.Container {
+func newPostgreSQLContainer(name string, resourceRequirements corev1.ResourceRequirements) corev1.Container {
 	return corev1.Container{
 		Image:   defaultPgImage,
 		Name:    name,
@@ -48,5 +48,6 @@ func newPostgreSQLContainer(name string) corev1.Container {
 				Value: "postgresql-node-0.postgresql",
 			},
 		},
+		Resources: resourceRequirements,
 	}
 }
