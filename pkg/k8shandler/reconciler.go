@@ -74,7 +74,7 @@ func Reconcile(request *PostgreSQLRequest) (bool, error) {
 
 	// Define a new Pod object
 	podList := &corev1.PodList{}
-	labelSelector := labels.SelectorFromSet(NewLabels("postgresql", request.cluster.Name))
+	labelSelector := labels.SelectorFromSet(newLabels("postgresql", request.cluster.Name))
 	listOps := &client.ListOptions{Namespace: request.cluster.Namespace, LabelSelector: labelSelector}
 	err = request.client.List(context.TODO(), listOps, podList)
 	if err != nil {

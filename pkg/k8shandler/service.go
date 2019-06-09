@@ -21,7 +21,7 @@ func newHeadlessService(request *PostgreSQLRequest) *corev1.Service {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "postgresql",
 			Namespace: request.cluster.Namespace,
-			Labels:    NewLabels("postgresql", request.cluster.Name),
+			Labels:    newLabels("postgresql", request.cluster.Name),
 		},
 		Spec: corev1.ServiceSpec{
 			ClusterIP: "None",

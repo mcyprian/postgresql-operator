@@ -14,7 +14,7 @@ import (
 
 // newStatefulSet returns a postgresql StatefulSet object
 func newStatefulSet(request *PostgreSQLRequest) *appsv1.StatefulSet {
-	labels := NewLabels("postgresql", request.cluster.Name)
+	labels := newLabels("postgresql", request.cluster.Name)
 	replicas := int32(len(request.cluster.Spec.Nodes))
 
 	set := &appsv1.StatefulSet{
