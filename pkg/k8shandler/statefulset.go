@@ -16,6 +16,7 @@ import (
 func newStatefulSet(request *PostgreSQLRequest) *appsv1.StatefulSet {
 	labels := newLabels("postgresql", request.cluster.Name)
 	replicas := int32(len(request.cluster.Spec.Nodes))
+	resourceRequirements := newResourceRequirements(request.cluster.Spec.Nodes[0].Resources)
 
 	set := &appsv1.StatefulSet{
 		TypeMeta: metav1.TypeMeta{
@@ -37,7 +38,7 @@ func newStatefulSet(request *PostgreSQLRequest) *appsv1.StatefulSet {
 					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{newPostgreSQLContainer(request.cluster.Name)},
+					Containers: []corev1.Container{newPostgreSQLContainer(request.cluster.Name, resourceRequirements)},
 				},
 			},
 			UpdateStrategy: appsv1.StatefulSetUpdateStrategy{
