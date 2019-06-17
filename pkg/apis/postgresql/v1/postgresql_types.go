@@ -41,8 +41,8 @@ const (
 type PostgreSQLSpec struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
-	ManagementState ManagementState  `json:"managementState"`
-	Nodes           []PostgreSQLNode `json:"nodes"`
+	ManagementState ManagementState           `json:"managementState"`
+	Nodes           map[string]PostgreSQLNode `json:"nodes"`
 }
 
 // NodeRole defines role of the individual node
