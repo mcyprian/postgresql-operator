@@ -97,9 +97,9 @@ func (in *PostgreSQLSpec) DeepCopyInto(out *PostgreSQLSpec) {
 	*out = *in
 	if in.Nodes != nil {
 		in, out := &in.Nodes, &out.Nodes
-		*out = make([]PostgreSQLNode, len(*in))
-		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
+		*out = make(map[string]PostgreSQLNode, len(*in))
+		for key, val := range *in {
+			(*out)[key] = *val.DeepCopy()
 		}
 	}
 	return

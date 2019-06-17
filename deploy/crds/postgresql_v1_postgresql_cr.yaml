@@ -1,12 +1,11 @@
 apiVersion: postgresql.openshift.com/v1
 kind: PostgreSQL
 metadata:
-  name: postgresql-node
+  name: postgresql-cluster
 spec:
   managementState: managed
   nodes:
-    - genUUID: "postgresql-node-0"
-      role: master
+    postgresql-node-0:
       image: "mcyprian/postgresql-10-fedora29"
       resources:
         limits:
@@ -15,8 +14,7 @@ spec:
           memory: 512Mi
       storage:
         emptyDir: {}
-    - genUUID: "postgresql-node-1"
-      role: standby
+    postgresql-node-1:
       image: "mcyprian/postgresql-10-fedora29"
       resources:
         limits:
@@ -25,13 +23,5 @@ spec:
           memory: 512Mi
       storage:
         emptyDir: {}
-    - genUUID: "postgresql-node-2"
-      role: standby
-      image: "mcyprian/postgresql-10-fedora29"
-      resources:
-        limits:
-          memory: 1Gi
-        requests:
-          memory: 512Mi
-      storage:
-        emptyDir: {}
+    postgresql-node-2:
+      allOf: postgresql-node-1

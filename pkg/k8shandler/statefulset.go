@@ -16,7 +16,7 @@ import (
 func newStatefulSet(request *PostgreSQLRequest) *appsv1.StatefulSet {
 	labels := newLabels("postgresql", request.cluster.Name)
 	replicas := int32(len(request.cluster.Spec.Nodes))
-	resourceRequirements := newResourceRequirements(request.cluster.Spec.Nodes[0].Resources)
+	resourceRequirements := newResourceRequirements(request.cluster.Spec.Nodes["postgresql-node-0"].Resources)
 
 	set := &appsv1.StatefulSet{
 		TypeMeta: metav1.TypeMeta{
