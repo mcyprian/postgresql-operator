@@ -6,17 +6,13 @@ import (
 )
 
 func newLabels(clusterName, nodeName string) map[string]string {
-	return map[string]string{
-		"cluster-name": clusterName,
-		"node-name":    nodeName,
-	}
-}
-
-func selectorForPg(clusterName string) map[string]string {
-
-	return map[string]string{
+	labels := map[string]string{
 		"cluster-name": clusterName,
 	}
+	if nodeName != "" {
+		labels["node-name"] = nodeName
+	}
+	return labels
 }
 
 func newResourceRequirements(resRequirements corev1.ResourceRequirements) corev1.ResourceRequirements {

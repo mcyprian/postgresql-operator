@@ -1,24 +1,29 @@
 package k8shandler
 
 import (
+	"context"
+
+	postgresqlv1 "github.com/mcyprian/postgresql-operator/pkg/apis/postgresql/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-// newDeployment returns a postgresql node Deployment object
-func newDeployment(request *PostgreSQLRequest, name string) *appsv1.Deployment {
+//newDeployment returns a postgresql node Deployment object
+func newDeployment(request *PostgreSQLRequest, name string, node *postgresqlv1.PostgreSQLNode) *appsv1.Deployment {
 	var single int32 = 1
-	labels := NewLabels("postgresql", request.cluster.Name)
+	labels := newLabels(request.cluster.Name, name)
+	resourceRequirements := newResourceRequirements(node.Resources)
 	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
 			APIVersion: appsv1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      request.cluster.Name,
+			Name:      name,
 			Namespace: request.cluster.Namespace,
+			Labels:    labels,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &single,
@@ -33,7 +38,8 @@ func newDeployment(request *PostgreSQLRequest, name string) *appsv1.Deployment {
 					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{newPostgreSQLContainer(name)},
+					Hostname:   name,
+					Containers: []corev1.Container{newPostgreSQLContainer(name, resourceRequirements)},
 				},
 			},
 		},
@@ -41,4 +47,9 @@ func newDeployment(request *PostgreSQLRequest, name string) *appsv1.Deployment {
 	// Set PostgreSQL instance as the owner and controller
 	controllerutil.SetControllerReference(request.cluster, deployment, request.scheme)
 	return deployment
+}
+
+// deleteNode removes node from the cluster
+func deleteNode(request *PostgreSQLRequest, node *appsv1.Deployment) {
+	request.client.Delete(context.TODO(), node)
 }

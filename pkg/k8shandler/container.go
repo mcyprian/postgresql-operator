@@ -45,7 +45,11 @@ func newPostgreSQLContainer(name string, resourceRequirements corev1.ResourceReq
 			},
 			corev1.EnvVar{
 				Name:  "POSTGRESQL_MASTER_SERVICE_NAME",
-				Value: "postgresql-node-0.postgresql",
+				Value: "postgresql-node-0",
+			},
+			corev1.EnvVar{
+				Name:  "NODENAME",
+				Value: name,
 			},
 		},
 		Resources: resourceRequirements,
