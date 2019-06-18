@@ -45,22 +45,12 @@ type PostgreSQLSpec struct {
 	Nodes           map[string]PostgreSQLNode `json:"nodes"`
 }
 
-// NodeRole defines role of the individual node
-type NodeRole string
-
-const (
-	PrimaryRole = "primary"
-	StandbyRole = "standby"
-)
-
 // PostgreSQLNode defines individual node in PostgreSQL cluster
 // +k8s:openapi-gen=true
 type PostgreSQLNode struct {
-	Role      NodeRole                    `json:"role"`
 	Image     string                      `json:"image,omitempty"`
 	Resources corev1.ResourceRequirements `json:"resources"`
 	Storage   PostgreSQLStorageSpec       `json:"storage"`
-	GenUUID   *string                     `json:"genUUID,omitempty"`
 }
 
 type PostgreSQLStorageSpec struct {
