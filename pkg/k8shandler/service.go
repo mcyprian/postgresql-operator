@@ -12,20 +12,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func newHeadlessService(request *PostgreSQLRequest) *corev1.Service {
+func newClusterIPService(request *PostgreSQLRequest, name string) *corev1.Service {
 	service := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Service",
 			APIVersion: appsv1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "postgresql",
+			Name:      name,
 			Namespace: request.cluster.Namespace,
-			Labels:    newLabels("postgresql", request.cluster.Name),
+			Labels:    newLabels(request.cluster.Name, name),
 		},
 		Spec: corev1.ServiceSpec{
-			ClusterIP: "None",
-			Selector:  selectorForPg("postgresql"),
+			Selector: newLabels(request.cluster.Name, name),
 			Ports: []corev1.ServicePort{
 				corev1.ServicePort{
 					Port:     postgresqlPort,
@@ -40,15 +39,12 @@ func newHeadlessService(request *PostgreSQLRequest) *corev1.Service {
 
 // CreateOrUpdateService creates a new Service if doesn't exists and ensures all its
 // attributes has desired values
-func CreateOrUpdateService(request *PostgreSQLRequest) error {
-	service := newHeadlessService(request)
-
+func CreateOrUpdateService(request *PostgreSQLRequest, service *corev1.Service) error {
 	err := request.client.Create(context.TODO(), service)
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("Failure constructing %v service: %v", service.Name, err)
+			return fmt.Errorf("Failed to construct %v service: %v", service.Name, err)
 		}
-
 		current := service.DeepCopy()
 		retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err = request.client.Get(context.TODO(), types.NamespacedName{Name: request.cluster.Name, Namespace: request.cluster.Namespace}, current); err != nil {
@@ -59,7 +55,6 @@ func CreateOrUpdateService(request *PostgreSQLRequest) error {
 				}
 				return fmt.Errorf("Failed to get %v service: %v", service.Name, err)
 			}
-
 			current.Spec.Ports = service.Spec.Ports
 			current.Spec.Selector = service.Spec.Selector
 			current.Spec.PublishNotReadyAddresses = service.Spec.PublishNotReadyAddresses

@@ -48,33 +48,33 @@ func Reconcile(request *PostgreSQLRequest) (bool, error) {
 		return true, err
 	}
 
-	reqLogger.Info("Running create or update for StatefulSet")
-	requeue, err := CreateOrUpdateStatefulSet(request)
-	if err != nil {
-		reqLogger.Error(err, "Failed to create of update StatefulSet")
-		return true, err
-	} else if requeue {
-		return true, nil
-	}
-	//reqLogger.Info("Running create or update for Cluster")
-	//requeue, err := CreateOrUpdateCluster(request)
+	//reqLogger.Info("Running create or update for StatefulSet")
+	//requeue, err := CreateOrUpdateStatefulSet(request)
 	//if err != nil {
-	//	reqLogger.Error(err, "Failed to create of update Cluster")
+	//	reqLogger.Error(err, "Failed to create of update StatefulSet")
 	//	return true, err
 	//} else if requeue {
 	//	return true, nil
 	//}
-
-	reqLogger.Info("Running create or update for Service")
-	err = CreateOrUpdateService(request)
+	reqLogger.Info("Running create or update for Cluster")
+	requeue, err := CreateOrUpdateCluster(request)
 	if err != nil {
-		reqLogger.Error(err, "Failed to create of update Service")
+		reqLogger.Error(err, "Failed to create of update Cluster")
 		return true, err
+	} else if requeue {
+		return true, nil
 	}
+
+	//reqLogger.Info("Running create or update for Service")
+	//err = CreateOrUpdateService(request)
+	//if err != nil {
+	//	reqLogger.Error(err, "Failed to create of update Service")
+	//	return true, err
+	//}
 
 	// Define a new Pod object
 	podList := &corev1.PodList{}
-	labelSelector := labels.SelectorFromSet(newLabels("postgresql", request.cluster.Name))
+	labelSelector := labels.SelectorFromSet(newLabels(request.cluster.Name, ""))
 	listOps := &client.ListOptions{Namespace: request.cluster.Namespace, LabelSelector: labelSelector}
 	err = request.client.List(context.TODO(), listOps, podList)
 	if err != nil {
