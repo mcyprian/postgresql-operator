@@ -74,11 +74,6 @@ func (in *PostgreSQLNode) DeepCopyInto(out *PostgreSQLNode) {
 	*out = *in
 	in.Resources.DeepCopyInto(&out.Resources)
 	in.Storage.DeepCopyInto(&out.Storage)
-	if in.GenUUID != nil {
-		in, out := &in.GenUUID, &out.GenUUID
-		*out = new(string)
-		**out = **in
-	}
 	return
 }
 
