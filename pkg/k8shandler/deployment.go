@@ -2,13 +2,64 @@ package k8shandler
 
 import (
 	"context"
+	"fmt"
 
 	postgresqlv1 "github.com/mcyprian/postgresql-operator/pkg/apis/postgresql/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
+
+type deploymentNode struct {
+	Name string
+	self *appsv1.Deployment
+	svc  *corev1.Service
+}
+
+func newDeploymentNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.PostgreSQLNode) *deploymentNode {
+	return &deploymentNode{
+		Name: name,
+		self: newDeployment(request, name, specNode),
+		svc:  newClusterIPService(request, name),
+	}
+}
+
+func (node *deploymentNode) create(request *PostgreSQLRequest) error {
+	err := request.client.Create(context.TODO(), node.self)
+	if err != nil {
+		if !errors.IsAlreadyExists(err) {
+			return fmt.Errorf("Failed to create node resource %v", err)
+		}
+	}
+	err = CreateOrUpdateService(request, node.svc)
+	if err != nil {
+		return fmt.Errorf("Failed to create service resource %v", err)
+	}
+	return nil
+}
+
+func (node *deploymentNode) update(request *PostgreSQLRequest, specNode *postgresqlv1.PostgreSQLNode) (bool, error) {
+	// TODO update node to reflect spec
+	//err := CreateOrUpdateService(request, node.svc)
+	//if err != nil {
+	//	return fmt.Errorf("Failed to create service resource %v", err)
+	//}
+	return false, nil
+}
+
+func (node *deploymentNode) delete(request *PostgreSQLRequest) error {
+	err := request.client.Delete(context.TODO(), node.self)
+	if err != nil {
+		return fmt.Errorf("Failed to delete node resource %v", err)
+	}
+	err = request.client.Delete(context.TODO(), node.svc)
+	if err != nil {
+		return fmt.Errorf("Failed to delete service resource %v", err)
+	}
+	return nil
+}
 
 //newDeployment returns a postgresql node Deployment object
 func newDeployment(request *PostgreSQLRequest, name string, node *postgresqlv1.PostgreSQLNode) *appsv1.Deployment {
@@ -47,9 +98,4 @@ func newDeployment(request *PostgreSQLRequest, name string, node *postgresqlv1.P
 	// Set PostgreSQL instance as the owner and controller
 	controllerutil.SetControllerReference(request.cluster, deployment, request.scheme)
 	return deployment
-}
-
-// deleteNode removes node from the cluster
-func deleteNode(request *PostgreSQLRequest, node *appsv1.Deployment) {
-	request.client.Delete(context.TODO(), node)
 }
