@@ -63,6 +63,14 @@ func (node *deploymentNode) delete(request *PostgreSQLRequest) error {
 	return nil
 }
 
+func (node *deploymentNode) status() postgresqlv1.PostgreSQLNodeStatus {
+	// TODO Return node role and status
+	return postgresqlv1.PostgreSQLNodeStatus{
+		DeploymentName: node.self.ObjectMeta.Name,
+		ServiceName:    node.svc.ObjectMeta.Name,
+	}
+}
+
 //newDeployment returns a postgresql node Deployment object
 func newDeployment(request *PostgreSQLRequest, name string, node *postgresqlv1.PostgreSQLNode) *appsv1.Deployment {
 	var single int32 = 1

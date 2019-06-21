@@ -1,7 +1,9 @@
 package k8shandler
 
 import (
+	"context"
 	"fmt"
+	postgresqlv1 "github.com/mcyprian/postgresql-operator/pkg/apis/postgresql/v1"
 )
 
 var nodes map[string]Node
@@ -31,6 +33,15 @@ func CreateOrUpdateCluster(request *PostgreSQLRequest) (bool, error) {
 				return false, err
 			}
 			nodes[name] = node
+		}
+		// Update node statuses
+		if request.cluster.Status.Nodes == nil {
+			request.cluster.Status.Nodes = make(map[string]postgresqlv1.PostgreSQLNodeStatus)
+		}
+		request.cluster.Status.Nodes[name] = node.status()
+		err := request.client.Status().Update(context.TODO(), request.cluster)
+		if err != nil {
+			return false, fmt.Errorf("Failed to update PostgreSQL status")
 		}
 	}
 	// Delete all extra nodes

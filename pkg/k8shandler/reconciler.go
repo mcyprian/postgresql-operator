@@ -3,7 +3,6 @@ package k8shandler
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"strings"
 
 	postgresqlv1 "github.com/mcyprian/postgresql-operator/pkg/apis/postgresql/v1"
@@ -81,17 +80,6 @@ func Reconcile(request *PostgreSQLRequest) (bool, error) {
 		reqLogger.Error(err, "Failed to list pods", "PostgreSQL.Namespace", request.cluster.Namespace, "PostgreSQL.Name", request.cluster.Name)
 		return true, err
 	}
-	podNames := getPodNames(podList.Items)
-
-	// Update status.Nodes if needed
-	if !reflect.DeepEqual(podNames, request.cluster.Status.Nodes) {
-		request.cluster.Status.Nodes = podNames
-		err := request.client.Status().Update(context.TODO(), request.cluster)
-		if err != nil {
-			reqLogger.Error(err, "Failed to update PostgreSQL status")
-			return true, err
-		}
-	}
 	// Register nodes which were not registered to repmgr cluster yet
 	repmgrClusterUp := true
 	if len(podList.Items) != len(request.cluster.Spec.Nodes) {
@@ -116,15 +104,6 @@ func Reconcile(request *PostgreSQLRequest) (bool, error) {
 		return true, nil
 	}
 	return false, nil
-}
-
-// getPodNames returns the pod names of the array of pods passed in
-func getPodNames(pods []corev1.Pod) []string {
-	var podNames []string
-	for _, pod := range pods {
-		podNames = append(podNames, pod.Name)
-	}
-	return podNames
 }
 
 // isReady determines whether pod status is Ready
