@@ -6,6 +6,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
+// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // PostgreSQLList contains a list of PostgreSQL
@@ -39,8 +42,6 @@ const (
 // PostgreSQLSpec defines the desired state of PostgreSQL
 // +k8s:openapi-gen=true
 type PostgreSQLSpec struct {
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
 	ManagementState ManagementState           `json:"managementState"`
 	Nodes           map[string]PostgreSQLNode `json:"nodes"`
 }
@@ -61,9 +62,22 @@ type PostgreSQLStorageSpec struct {
 // PostgreSQLStatus defines the observed state of PostgreSQL
 // +k8s:openapi-gen=true
 type PostgreSQLStatus struct {
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
-	Nodes []string `json:"nodes"`
+	Nodes map[string]PostgreSQLNodeStatus `json:"nodes"`
+}
+
+type PostgreSQLNodeRole string
+
+const (
+	PostgreSQLNodeRolePrimary = "primary"
+	PostgreSQLNodeRoleStandby = "standby"
+)
+
+// PostgreSQLNodeStatus represents the status of individual node
+type PostgreSQLNodeStatus struct {
+	DeploymentName string             `json:"deploymentName,omitempty"`
+	ServiceName    string             `json:"serviceName,omitempty"`
+	Status         string             `json:"status,omitempty"`
+	Role           PostgreSQLNodeRole `json:"role,omitempty"`
 }
 
 func init() {
