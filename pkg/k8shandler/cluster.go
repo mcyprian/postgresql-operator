@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-var nodes map[string]*deploymentNode
+var nodes map[string]Node
 
 // CreateOrUpdateCluster iterates over all nodes in the current spec
 // and ensures cluster reflect desired state
@@ -13,7 +13,7 @@ func CreateOrUpdateCluster(request *PostgreSQLRequest) (bool, error) {
 	var err error
 
 	if nodes == nil {
-		nodes = make(map[string]*deploymentNode)
+		nodes = make(map[string]Node)
 	}
 	for name, specNode := range request.cluster.Spec.Nodes {
 		node, ok := nodes[name]

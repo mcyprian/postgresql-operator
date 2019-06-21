@@ -13,17 +13,19 @@ import (
 )
 
 type deploymentNode struct {
-	Name string
 	self *appsv1.Deployment
 	svc  *corev1.Service
 }
 
 func newDeploymentNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.PostgreSQLNode) *deploymentNode {
 	return &deploymentNode{
-		Name: name,
 		self: newDeployment(request, name, specNode),
 		svc:  newClusterIPService(request, name),
 	}
+}
+
+func (node *deploymentNode) name() string {
+	return node.self.ObjectMeta.Name
 }
 
 func (node *deploymentNode) create(request *PostgreSQLRequest) error {
