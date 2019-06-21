@@ -124,7 +124,7 @@ func isRegistered(request *PostgreSQLRequest, pod corev1.Pod) (bool, error) {
 		log.Info(fmt.Sprintf("Repmgr node check returned non-zero exit status, stdout: %v, stderr: %v", stdout, stderr))
 		return false, err
 	} else {
-		log.Info("Repmgr node check executed", stdout, stderr)
+		log.Info(fmt.Sprintf("Repmgr node check executed: stdout: %v, stderr: %v", stdout, stderr))
 		if strings.Contains(stdout, "OK") {
 			return true, nil
 		} else {
@@ -140,7 +140,7 @@ func repmgrRegister(request *PostgreSQLRequest, pod corev1.Pod) error {
 		log.Error(err, fmt.Sprintf("Repmgr register failed, stdout: %v, stderr: %v", stdout, stderr))
 		return err
 	} else {
-		log.Info("Repmgr register executed", stdout, stderr)
+		log.Info(fmt.Sprintf("Repmgr register executed: stdout: %v, stderr: %v", stdout, stderr))
 	}
 	return nil
 }

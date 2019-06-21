@@ -2,6 +2,7 @@ package k8shandler
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 
 	corev1 "k8s.io/api/core/v1"
@@ -35,7 +36,7 @@ func ExecToPodThroughAPI(config *rest.Config, clientset *kubernetes.Clientset, c
 		TTY:       false,
 	}, parameterCodec)
 
-	reqLogger.Info("Request URL:", req.URL().String())
+	reqLogger.Info(fmt.Sprintf("Request URL: %v", req.URL().String()))
 
 	exec, err := remotecommand.NewSPDYExecutor(config, "POST", req.URL())
 	if err != nil {

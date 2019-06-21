@@ -56,6 +56,6 @@ func CreateOrUpdateCluster(request *PostgreSQLRequest) (bool, error) {
 			delete(nodes, name)
 		}
 	}
-	log.Info(fmt.Sprintf("Nodes after update %v", nodes))
+	log.Info(fmt.Sprintf("Nodes after update: %v", nodes))
 	return requeue, nil
 }
