@@ -1,0 +1,16 @@
+apiVersion: postgresql.openshift.com/v1
+kind: PostgreSQL
+metadata:
+  name: postgresql-cluster
+spec:
+  managementState: managed
+  size: 3
+  nodeSpec:
+    image: "mcyprian/postgresql-10-fedora29"
+    resources:
+      limits:
+        memory: 1Gi
+      requests:
+        memory: 512Mi
+    storage:
+      emptyDir: {}
