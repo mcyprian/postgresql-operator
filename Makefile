@@ -33,3 +33,6 @@ down:
 fmt:
 	@gofmt -l -w cmd && \
 	gofmt -l -w pkg
+
+dep:
+	dep ensure -v
