@@ -15,12 +15,14 @@ import (
 type deploymentNode struct {
 	self *appsv1.Deployment
 	svc  *corev1.Service
+	db   *database
 }
 
 func newDeploymentNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.PostgreSQLNode) *deploymentNode {
 	return &deploymentNode{
 		self: newDeployment(request, name, specNode),
 		svc:  newClusterIPService(request, name),
+		db:   newRepmgrDatabase(name),
 	}
 }
 
@@ -39,6 +41,11 @@ func (node *deploymentNode) create(request *PostgreSQLRequest) error {
 	if err != nil {
 		return fmt.Errorf("Failed to create service resource %v", err)
 	}
+	err = node.db.initialize()
+	if err != nil {
+		return fmt.Errorf("Failed to initialize repmgr database connection %v", err)
+	}
+
 	return nil
 }
 
@@ -60,14 +67,21 @@ func (node *deploymentNode) delete(request *PostgreSQLRequest) error {
 	if err != nil {
 		return fmt.Errorf("Failed to delete service resource %v", err)
 	}
+	node.db.engine.Close()
 	return nil
 }
 
 func (node *deploymentNode) status() postgresqlv1.PostgreSQLNodeStatus {
 	// TODO Return node role and status
+	version, err := node.db.version()
+	if err != nil {
+		log.Error(err, "Failed to execute SQL query")
+	}
+
 	return postgresqlv1.PostgreSQLNodeStatus{
 		DeploymentName: node.self.ObjectMeta.Name,
 		ServiceName:    node.svc.ObjectMeta.Name,
+		PgVersion:      version,
 	}
 }
 

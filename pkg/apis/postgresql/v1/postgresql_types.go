@@ -76,6 +76,7 @@ const (
 type PostgreSQLNodeStatus struct {
 	DeploymentName string             `json:"deploymentName,omitempty"`
 	ServiceName    string             `json:"serviceName,omitempty"`
+	PgVersion      string             `json:"pgversion,omitempty"`
 	Status         string             `json:"status,omitempty"`
 	Role           PostgreSQLNodeRole `json:"role,omitempty"`
 }
