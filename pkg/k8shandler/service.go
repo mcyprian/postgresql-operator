@@ -40,8 +40,7 @@ func newClusterIPService(request *PostgreSQLRequest, name string) *corev1.Servic
 // CreateOrUpdateService creates a new Service if doesn't exists and ensures all its
 // attributes has desired values
 func CreateOrUpdateService(request *PostgreSQLRequest, service *corev1.Service) error {
-	err := request.client.Create(context.TODO(), service)
-	if err != nil {
+	if err := request.client.Create(context.TODO(), service); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("Failed to construct %v service: %v", service.Name, err)
 		}
