@@ -46,14 +46,6 @@ func Reconcile(request *PostgreSQLRequest) (bool, error) {
 		return true, err
 	}
 
-	//reqLogger.Info("Running create or update for StatefulSet")
-	//requeue, err := CreateOrUpdateStatefulSet(request)
-	//if err != nil {
-	//	reqLogger.Error(err, "Failed to create of update StatefulSet")
-	//	return true, err
-	//} else if requeue {
-	//	return true, nil
-	//}
 	reqLogger.Info("Running create or update for Cluster")
 	requeue, err := CreateOrUpdateCluster(request)
 	if err != nil {
