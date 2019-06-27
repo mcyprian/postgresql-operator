@@ -28,8 +28,7 @@ func CreateOrUpdateCluster(request *PostgreSQLRequest) (bool, error) {
 		} else {
 			// Create a new node and add it into nodes map
 			node = newDeploymentNode(request, name, &specNode)
-			err := node.create(request)
-			if err != nil {
+			if err := node.create(request); err != nil {
 				return false, err
 			}
 			nodes[name] = node
@@ -39,8 +38,7 @@ func CreateOrUpdateCluster(request *PostgreSQLRequest) (bool, error) {
 			request.cluster.Status.Nodes = make(map[string]postgresqlv1.PostgreSQLNodeStatus)
 		}
 		request.cluster.Status.Nodes[name] = node.status()
-		err := request.client.Status().Update(context.TODO(), request.cluster)
-		if err != nil {
+		if err := request.client.Status().Update(context.TODO(), request.cluster); err != nil {
 			return false, fmt.Errorf("Failed to update PostgreSQL status")
 		}
 	}
@@ -49,8 +47,7 @@ func CreateOrUpdateCluster(request *PostgreSQLRequest) (bool, error) {
 		_, ok := request.cluster.Spec.Nodes[name]
 		if !ok {
 			log.Info(fmt.Sprintf("Deleting node %v", name))
-			err := deployedNode.delete(request)
-			if err != nil {
+			if err := deployedNode.delete(request); err != nil {
 				return false, err
 			}
 			delete(nodes, name)

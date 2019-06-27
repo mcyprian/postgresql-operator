@@ -41,8 +41,7 @@ func Reconcile(request *PostgreSQLRequest) (bool, error) {
 	reqLogger.Info("Reconciling PostgreSQL")
 
 	reqLogger.Info("Running create or update for Secret")
-	err := CreateOrUpdateSecret(request)
-	if err != nil {
+	if err := CreateOrUpdateSecret(request); err != nil {
 		reqLogger.Error(err, "Failed to create of update Secret")
 		return true, err
 	}
@@ -75,8 +74,7 @@ func Reconcile(request *PostgreSQLRequest) (bool, error) {
 	podList := &corev1.PodList{}
 	labelSelector := labels.SelectorFromSet(newLabels(request.cluster.Name, ""))
 	listOps := &client.ListOptions{Namespace: request.cluster.Namespace, LabelSelector: labelSelector}
-	err = request.client.List(context.TODO(), listOps, podList)
-	if err != nil {
+	if err := request.client.List(context.TODO(), listOps, podList); err != nil {
 		reqLogger.Error(err, "Failed to list pods", "PostgreSQL.Namespace", request.cluster.Namespace, "PostgreSQL.Name", request.cluster.Name)
 		return true, err
 	}
@@ -91,8 +89,7 @@ func Reconcile(request *PostgreSQLRequest) (bool, error) {
 		} else {
 			registered, _ := isRegistered(request, pod)
 			if !registered {
-				err = repmgrRegister(request, pod)
-				if err != nil {
+				if err := repmgrRegister(request, pod); err != nil {
 					reqLogger.Error(err, "Repmgr register failed")
 					return true, err
 				}

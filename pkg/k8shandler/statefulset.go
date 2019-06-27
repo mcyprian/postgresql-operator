@@ -60,8 +60,7 @@ func CreateOrUpdateStatefulSet(request *PostgreSQLRequest) (bool, error) {
 	if err != nil && errors.IsNotFound(err) {
 		// Define a new statefulset
 		current := newStatefulSet(request)
-		err = request.client.Create(context.TODO(), current)
-		if err != nil {
+		if err = request.client.Create(context.TODO(), current); err != nil {
 			return true, fmt.Errorf("Failed to create new StatefulSet", "StatefulSet.Namespace", current.Namespace, "StatefulSet.Name, %v", current.Name, err)
 		}
 		// StatefulSet created successfully - return and requeue
@@ -74,8 +73,7 @@ func CreateOrUpdateStatefulSet(request *PostgreSQLRequest) (bool, error) {
 	size := int32(len(request.cluster.Spec.Nodes))
 	if *set.Spec.Replicas != size {
 		set.Spec.Replicas = &size
-		err = request.client.Update(context.TODO(), set)
-		if err != nil {
+		if err := request.client.Update(context.TODO(), set); err != nil {
 			return true, fmt.Errorf("Failed to update StatefulSet", "StatefulSet.Namespace", set.Namespace, "StatefulSet.Name, %v", set.Name, err)
 		}
 		// Spec updated - return and requeue

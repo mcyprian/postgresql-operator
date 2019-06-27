@@ -31,18 +31,15 @@ func (node *deploymentNode) name() string {
 }
 
 func (node *deploymentNode) create(request *PostgreSQLRequest) error {
-	err := request.client.Create(context.TODO(), node.self)
-	if err != nil {
+	if err := request.client.Create(context.TODO(), node.self); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("Failed to create node resource %v", err)
 		}
 	}
-	err = CreateOrUpdateService(request, node.svc)
-	if err != nil {
+	if err := CreateOrUpdateService(request, node.svc); err != nil {
 		return fmt.Errorf("Failed to create service resource %v", err)
 	}
-	err = node.db.initialize()
-	if err != nil {
+	if err := node.db.initialize(); err != nil {
 		return fmt.Errorf("Failed to initialize repmgr database connection %v", err)
 	}
 
@@ -51,20 +48,17 @@ func (node *deploymentNode) create(request *PostgreSQLRequest) error {
 
 func (node *deploymentNode) update(request *PostgreSQLRequest, specNode *postgresqlv1.PostgreSQLNode) (bool, error) {
 	// TODO update node to reflect spec
-	//err := CreateOrUpdateService(request, node.svc)
-	//if err != nil {
+	//if err := CreateOrUpdateService(request, node.svc); err != nil {
 	//	return fmt.Errorf("Failed to create service resource %v", err)
 	//}
 	return false, nil
 }
 
 func (node *deploymentNode) delete(request *PostgreSQLRequest) error {
-	err := request.client.Delete(context.TODO(), node.self)
-	if err != nil {
+	if err := request.client.Delete(context.TODO(), node.self); err != nil {
 		return fmt.Errorf("Failed to delete node resource %v", err)
 	}
-	err = request.client.Delete(context.TODO(), node.svc)
-	if err != nil {
+	if err := request.client.Delete(context.TODO(), node.svc); err != nil {
 		return fmt.Errorf("Failed to delete service resource %v", err)
 	}
 	node.db.engine.Close()
