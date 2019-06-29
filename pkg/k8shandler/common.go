@@ -1,6 +1,9 @@
 package k8shandler
 
 import (
+	"fmt"
+	"strings"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -61,4 +64,44 @@ func newResourceRequirements(resRequirements corev1.ResourceRequirements) corev1
 			corev1.ResourceMemory: *requestMem,
 		},
 	}
+}
+
+// isReady determines whether pod status is Ready
+func isReady(pod corev1.Pod) bool {
+	for _, cond := range pod.Status.Conditions {
+		if cond.Type == "Ready" && cond.Status == "True" {
+			return true
+		}
+	}
+	return false
+}
+
+// isRegistered determines whether repmgr node was successfuly registered
+func isRegistered(request *PostgreSQLRequest, pod corev1.Pod) (bool, error) {
+	execCommand := []string{"shell-entrypoint", "repmgr", "node", "check"}
+	stdout, stderr, err := ExecToPodThroughAPI(request.restConfig, request.clientset, execCommand, pod.Spec.Containers[0].Name, pod.Name, request.cluster.Namespace, nil)
+	if err != nil {
+		log.Info(fmt.Sprintf("Repmgr node check returned non-zero exit status, stdout: %v, stderr: %v", stdout, stderr))
+		return false, err
+	} else {
+		log.Info(fmt.Sprintf("Repmgr node check executed: stdout: %v, stderr: %v", stdout, stderr))
+		if strings.Contains(stdout, "OK") {
+			return true, nil
+		} else {
+			return false, nil
+		}
+	}
+}
+
+// repmgrRegister exec repmgr register command inside a pod
+func repmgrRegister(request *PostgreSQLRequest, pod corev1.Pod) error {
+	execCommand := []string{"shell-entrypoint", "repmgr-register"}
+	stdout, stderr, err := ExecToPodThroughAPI(request.restConfig, request.clientset, execCommand, pod.Spec.Containers[0].Name, pod.Name, request.cluster.Namespace, nil)
+	if err != nil {
+		log.Error(err, fmt.Sprintf("Repmgr register failed, stdout: %v, stderr: %v", stdout, stderr))
+		return err
+	} else {
+		log.Info(fmt.Sprintf("Repmgr register executed: stdout: %v, stderr: %v", stdout, stderr))
+	}
+	return nil
 }
