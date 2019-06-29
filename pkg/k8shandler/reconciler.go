@@ -55,16 +55,16 @@ func Reconcile(request *PostgreSQLRequest) (bool, error) {
 		return true, nil
 	}
 
-	//reqLogger.Info("Running create or update for Service")
-	//err = CreateOrUpdateService(request)
-	//if err != nil {
-	//	reqLogger.Error(err, "Failed to create of update Service")
-	//	return true, err
-	//}
+	reqLogger.Info("Running create or update for primary Service")
+	err = CreateOrUpdateService(request, "postgresql-primary", true)
+	if err != nil {
+		reqLogger.Error(err, "Failed to create of update Service")
+		return true, err
+	}
 
 	// Define a new Pod object
 	podList := &corev1.PodList{}
-	labelSelector := labels.SelectorFromSet(newLabels(request.cluster.Name, ""))
+	labelSelector := labels.SelectorFromSet(newLabels(request.cluster.Name, "", false))
 	listOps := &client.ListOptions{Namespace: request.cluster.Namespace, LabelSelector: labelSelector}
 	if err := request.client.List(context.TODO(), listOps, podList); err != nil {
 		reqLogger.Error(err, "Failed to list pods", "PostgreSQL.Namespace", request.cluster.Namespace, "PostgreSQL.Name", request.cluster.Name)

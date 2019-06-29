@@ -13,16 +13,18 @@ import (
 )
 
 type deploymentNode struct {
-	self *appsv1.Deployment
-	svc  *corev1.Service
-	db   *database
+	self        *appsv1.Deployment
+	svc         *corev1.Service
+	db          *database
+	initPrimary bool
 }
 
-func newDeploymentNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.PostgreSQLNode) *deploymentNode {
+func newDeploymentNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.PostgreSQLNode, primary bool) *deploymentNode {
 	return &deploymentNode{
-		self: newDeployment(request, name, specNode),
-		svc:  newClusterIPService(request, name),
-		db:   newRepmgrDatabase(name),
+		self:        newDeployment(request, name, specNode, primary),
+		svc:         newClusterIPService(request, name, primary),
+		db:          newRepmgrDatabase(name),
+		initPrimary: primary,
 	}
 }
 
@@ -36,7 +38,7 @@ func (node *deploymentNode) create(request *PostgreSQLRequest) error {
 			return fmt.Errorf("Failed to create node resource %v", err)
 		}
 	}
-	if err := CreateOrUpdateService(request, node.svc); err != nil {
+	if err := CreateOrUpdateService(request, node.svc.ObjectMeta.Name, node.initPrimary); err != nil {
 		return fmt.Errorf("Failed to create service resource %v", err)
 	}
 	if err := node.db.initialize(); err != nil {
@@ -80,9 +82,9 @@ func (node *deploymentNode) status() postgresqlv1.PostgreSQLNodeStatus {
 }
 
 //newDeployment returns a postgresql node Deployment object
-func newDeployment(request *PostgreSQLRequest, name string, node *postgresqlv1.PostgreSQLNode) *appsv1.Deployment {
+func newDeployment(request *PostgreSQLRequest, name string, node *postgresqlv1.PostgreSQLNode, primary bool) *appsv1.Deployment {
 	var single int32 = 1
-	labels := newLabels(request.cluster.Name, name)
+	labels := newLabels(request.cluster.Name, name, primary)
 	resourceRequirements := newResourceRequirements(node.Resources)
 	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{

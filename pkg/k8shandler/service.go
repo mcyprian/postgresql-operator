@@ -12,7 +12,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func newClusterIPService(request *PostgreSQLRequest, name string) *corev1.Service {
+func newClusterIPService(request *PostgreSQLRequest, name string, primary bool) *corev1.Service {
+	var selectorLabels map[string]string
+	if primary {
+		selectorLabels = newLabels(request.cluster.Name, "", true)
+	} else {
+		selectorLabels = newLabels(request.cluster.Name, name, false)
+	}
 	service := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Service",
@@ -21,10 +27,10 @@ func newClusterIPService(request *PostgreSQLRequest, name string) *corev1.Servic
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: request.cluster.Namespace,
-			Labels:    newLabels(request.cluster.Name, name),
+			Labels:    newLabels(request.cluster.Name, name, false),
 		},
 		Spec: corev1.ServiceSpec{
-			Selector: newLabels(request.cluster.Name, name),
+			Selector: selectorLabels,
 			Ports: []corev1.ServicePort{
 				corev1.ServicePort{
 					Port:     postgresqlPort,
@@ -39,7 +45,8 @@ func newClusterIPService(request *PostgreSQLRequest, name string) *corev1.Servic
 
 // CreateOrUpdateService creates a new Service if doesn't exists and ensures all its
 // attributes has desired values
-func CreateOrUpdateService(request *PostgreSQLRequest, service *corev1.Service) error {
+func CreateOrUpdateService(request *PostgreSQLRequest, name string, primary bool) error {
+	service := newClusterIPService(request, name, primary)
 	if err := request.client.Create(context.TODO(), service); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("Failed to construct %v service: %v", service.Name, err)

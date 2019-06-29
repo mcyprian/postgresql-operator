@@ -5,12 +5,15 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-func newLabels(clusterName, nodeName string) map[string]string {
+func newLabels(clusterName, nodeName string, primary bool) map[string]string {
 	labels := map[string]string{
 		"cluster-name": clusterName,
 	}
 	if nodeName != "" {
 		labels["node-name"] = nodeName
+	}
+	if primary {
+		labels["node-role"] = "primary"
 	}
 	return labels
 }
