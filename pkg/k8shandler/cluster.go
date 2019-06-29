@@ -7,7 +7,7 @@ import (
 )
 
 var nodes map[string]Node
-var primaryNode *Node
+var primaryNode Node
 
 func getOne(m map[string]postgresqlv1.PostgreSQLNode) (string, *postgresqlv1.PostgreSQLNode, error) {
 	for name, node := range m {
@@ -21,9 +21,13 @@ func getOne(m map[string]postgresqlv1.PostgreSQLNode) (string, *postgresqlv1.Pos
 func CreateOrUpdateCluster(request *PostgreSQLRequest) (bool, error) {
 	var requeue bool
 	var err error
+	var repmgrClusterUp = true // flag to track whether all nodes are registered to repmgr cluster
 
 	if nodes == nil {
 		nodes = make(map[string]Node)
+	}
+	if request.cluster.Status.Nodes == nil {
+		request.cluster.Status.Nodes = make(map[string]postgresqlv1.PostgreSQLNodeStatus)
 	}
 	if primaryNode == nil {
 		// Create new primary node TODO: lost primary reference?
@@ -35,6 +39,7 @@ func CreateOrUpdateCluster(request *PostgreSQLRequest) (bool, error) {
 		if err := node.create(request); err != nil {
 			return false, err
 		}
+		primaryNode = node
 		nodes[name] = node
 	}
 	for name, specNode := range request.cluster.Spec.Nodes {
@@ -53,13 +58,26 @@ func CreateOrUpdateCluster(request *PostgreSQLRequest) (bool, error) {
 			}
 			nodes[name] = node
 		}
-		// Update node statuses
-		if request.cluster.Status.Nodes == nil {
-			request.cluster.Status.Nodes = make(map[string]postgresqlv1.PostgreSQLNodeStatus)
+		ready, err := node.isReady(request)
+		if err != nil {
+			return false, err
 		}
-		request.cluster.Status.Nodes[name] = node.status()
-		if err := request.client.Status().Update(context.TODO(), request.cluster); err != nil {
-			return false, fmt.Errorf("Failed to update PostgreSQL status")
+		if ready {
+			// Update node status
+			request.cluster.Status.Nodes[name] = node.status()
+			if err := request.client.Status().Update(context.TODO(), request.cluster); err != nil {
+				return false, fmt.Errorf("Failed to update PostgreSQL status")
+			}
+			registered, _ := node.isRegistered(request)
+			if !registered {
+				// Register to repmgr cluster
+				if err := node.register(request); err != nil {
+					return true, err
+				}
+				repmgrClusterUp = false
+			}
+		} else {
+			repmgrClusterUp = false
 		}
 	}
 	// Delete all extra nodes
@@ -74,5 +92,8 @@ func CreateOrUpdateCluster(request *PostgreSQLRequest) (bool, error) {
 		}
 	}
 	log.Info(fmt.Sprintf("Nodes after update: %v", nodes))
+	if !repmgrClusterUp {
+		return true, nil
+	}
 	return requeue, nil
 }

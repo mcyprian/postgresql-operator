@@ -1,13 +1,7 @@
 package k8shandler
 
 import (
-	"context"
-	"fmt"
-	"strings"
-
 	postgresqlv1 "github.com/mcyprian/postgresql-operator/pkg/apis/postgresql/v1"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -42,94 +36,25 @@ func Reconcile(request *PostgreSQLRequest) (bool, error) {
 
 	reqLogger.Info("Running create or update for Secret")
 	if err := CreateOrUpdateSecret(request); err != nil {
-		reqLogger.Error(err, "Failed to create of update Secret")
+		reqLogger.Error(err, "Failed to create or update Secret")
 		return true, err
 	}
 
 	reqLogger.Info("Running create or update for Cluster")
 	requeue, err := CreateOrUpdateCluster(request)
 	if err != nil {
-		reqLogger.Error(err, "Failed to create of update Cluster")
+		reqLogger.Error(err, "Failed to create or update Cluster")
 		return true, err
 	} else if requeue {
+		reqLogger.Info("Request requeued after create or update of Cluster")
 		return true, nil
 	}
 
 	reqLogger.Info("Running create or update for primary Service")
 	err = CreateOrUpdateService(request, "postgresql-primary", true)
 	if err != nil {
-		reqLogger.Error(err, "Failed to create of update Service")
+		reqLogger.Error(err, "Failed to create or update Service")
 		return true, err
-	}
-
-	// Define a new Pod object
-	podList := &corev1.PodList{}
-	labelSelector := labels.SelectorFromSet(newLabels(request.cluster.Name, "", false))
-	listOps := &client.ListOptions{Namespace: request.cluster.Namespace, LabelSelector: labelSelector}
-	if err := request.client.List(context.TODO(), listOps, podList); err != nil {
-		reqLogger.Error(err, "Failed to list pods", "PostgreSQL.Namespace", request.cluster.Namespace, "PostgreSQL.Name", request.cluster.Name)
-		return true, err
-	}
-	// Register nodes which were not registered to repmgr cluster yet
-	repmgrClusterUp := true
-	if len(podList.Items) != len(request.cluster.Spec.Nodes) {
-		repmgrClusterUp = false
-	}
-	for _, pod := range podList.Items {
-		if !isReady(pod) {
-			repmgrClusterUp = false
-		} else {
-			registered, _ := isRegistered(request, pod)
-			if !registered {
-				if err := repmgrRegister(request, pod); err != nil {
-					reqLogger.Error(err, "Repmgr register failed")
-					return true, err
-				}
-				repmgrClusterUp = false
-			}
-		}
-	}
-	if !repmgrClusterUp {
-		return true, nil
 	}
 	return false, nil
-}
-
-// isReady determines whether pod status is Ready
-func isReady(pod corev1.Pod) bool {
-	for _, cond := range pod.Status.Conditions {
-		if cond.Type == "Ready" && cond.Status == "True" {
-			return true
-		}
-	}
-	return false
-}
-
-// isRegistered determines whether repmgr node was successfuly registered
-func isRegistered(request *PostgreSQLRequest, pod corev1.Pod) (bool, error) {
-	execCommand := []string{"shell-entrypoint", "repmgr", "node", "check"}
-	stdout, stderr, err := ExecToPodThroughAPI(request.restConfig, request.clientset, execCommand, pod.Spec.Containers[0].Name, pod.Name, request.cluster.Namespace, nil)
-	if err != nil {
-		log.Info(fmt.Sprintf("Repmgr node check returned non-zero exit status, stdout: %v, stderr: %v", stdout, stderr))
-		return false, err
-	} else {
-		log.Info(fmt.Sprintf("Repmgr node check executed: stdout: %v, stderr: %v", stdout, stderr))
-		if strings.Contains(stdout, "OK") {
-			return true, nil
-		} else {
-			return false, nil
-		}
-	}
-}
-
-func repmgrRegister(request *PostgreSQLRequest, pod corev1.Pod) error {
-	execCommand := []string{"shell-entrypoint", "repmgr-register"}
-	stdout, stderr, err := ExecToPodThroughAPI(request.restConfig, request.clientset, execCommand, pod.Spec.Containers[0].Name, pod.Name, request.cluster.Namespace, nil)
-	if err != nil {
-		log.Error(err, fmt.Sprintf("Repmgr register failed, stdout: %v, stderr: %v", stdout, stderr))
-		return err
-	} else {
-		log.Info(fmt.Sprintf("Repmgr register executed: stdout: %v, stderr: %v", stdout, stderr))
-	}
-	return nil
 }

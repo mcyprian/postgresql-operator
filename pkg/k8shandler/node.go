@@ -10,4 +10,7 @@ type Node interface {
 	update(request *PostgreSQLRequest, specNode *postgresqlv1.PostgreSQLNode) (bool, error)
 	delete(request *PostgreSQLRequest) error
 	status() postgresqlv1.PostgreSQLNodeStatus
+	register(request *PostgreSQLRequest) error
+	isRegistered(request *PostgreSQLRequest) (bool, error)
+	isReady(request *PostgreSQLRequest) (bool, error)
 }
