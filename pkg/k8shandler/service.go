@@ -49,7 +49,7 @@ func CreateOrUpdateService(request *PostgreSQLRequest, name string, primary bool
 	service := newClusterIPService(request, name, primary)
 	if err := request.client.Create(context.TODO(), service); err != nil {
 		if !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("Failed to construct %v service: %v", service.Name, err)
+			return fmt.Errorf("Failed to construct service %v: %v", service.Name, err)
 		}
 		current := service.DeepCopy()
 		retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -59,7 +59,7 @@ func CreateOrUpdateService(request *PostgreSQLRequest, name string, primary bool
 					// recreate it on the next time through if necessary
 					return nil
 				}
-				return fmt.Errorf("Failed to get %v service: %v", service.Name, err)
+				return fmt.Errorf("Failed to get service %v: %v", service.Name, err)
 			}
 			current.Spec.Ports = service.Spec.Ports
 			current.Spec.Selector = service.Spec.Selector

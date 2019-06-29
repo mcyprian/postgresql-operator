@@ -9,6 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -50,9 +51,14 @@ func (node *deploymentNode) create(request *PostgreSQLRequest) error {
 
 func (node *deploymentNode) update(request *PostgreSQLRequest, specNode *postgresqlv1.PostgreSQLNode) (bool, error) {
 	// TODO update node to reflect spec
-	//if err := CreateOrUpdateService(request, node.svc); err != nil {
-	//	return fmt.Errorf("Failed to create service resource %v", err)
-	//}
+	if err := CreateOrUpdateService(request, node.svc.ObjectMeta.Name, node.initPrimary); err != nil {
+		return false, fmt.Errorf("Failed to create service resource %v", err)
+	}
+	current := node.self.DeepCopy()
+	if err := request.client.Get(context.TODO(), types.NamespacedName{Name: node.name(), Namespace: request.cluster.Namespace}, current); err != nil {
+		return false, fmt.Errorf("Failed to get deployment %v: %v", node.name(), err)
+	}
+	node.self = current
 	return false, nil
 }
 
@@ -93,12 +99,8 @@ func (node *deploymentNode) getPod(request *PostgreSQLRequest) (corev1.Pod, erro
 	return podList.Items[0], nil
 }
 
-func (node *deploymentNode) isReady(request *PostgreSQLRequest) (bool, error) {
-	pod, err := node.getPod(request)
-	if err != nil {
-		return false, err
-	}
-	return isReady(pod), nil
+func (node *deploymentNode) isReady() bool {
+	return node.self.Status.ReadyReplicas == 1
 }
 
 func (node *deploymentNode) isRegistered(request *PostgreSQLRequest) (bool, error) {

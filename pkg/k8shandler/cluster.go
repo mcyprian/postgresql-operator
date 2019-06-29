@@ -32,11 +32,7 @@ func CreateOrUpdateCluster(request *PostgreSQLRequest) (bool, error) {
 			return false, err
 		}
 		node, _ := nodes[name]
-		ready, err := node.isReady(request)
-		if err != nil {
-			return false, err
-		}
-		if ready {
+		if node.isReady() {
 			registered, _ := node.isRegistered(request)
 			if !registered {
 				// Register node to repmgr cluster

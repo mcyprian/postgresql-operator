@@ -66,16 +66,6 @@ func newResourceRequirements(resRequirements corev1.ResourceRequirements) corev1
 	}
 }
 
-// isReady determines whether pod status is Ready
-func isReady(pod corev1.Pod) bool {
-	for _, cond := range pod.Status.Conditions {
-		if cond.Type == "Ready" && cond.Status == "True" {
-			return true
-		}
-	}
-	return false
-}
-
 // isRegistered determines whether repmgr node was successfuly registered
 func isRegistered(request *PostgreSQLRequest, pod corev1.Pod) (bool, error) {
 	execCommand := []string{"shell-entrypoint", "repmgr", "node", "check"}
