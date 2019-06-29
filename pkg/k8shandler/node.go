@@ -12,5 +12,5 @@ type Node interface {
 	status() postgresqlv1.PostgreSQLNodeStatus
 	register(request *PostgreSQLRequest) error
 	isRegistered(request *PostgreSQLRequest) (bool, error)
-	isReady(request *PostgreSQLRequest) (bool, error)
+	isReady() bool
 }
