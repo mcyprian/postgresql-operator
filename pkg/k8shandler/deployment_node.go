@@ -90,11 +90,11 @@ func (node *deploymentNode) status() postgresqlv1.PostgreSQLNodeStatus {
 // getPod returns pod which was created by the node
 func (node *deploymentNode) getPod(request *PostgreSQLRequest) (corev1.Pod, error) {
 	podList := corev1.PodList{}
-	labelSelector := labels.SelectorFromSet(newLabels(request.cluster.Name, node.self.ObjectMeta.Name, false))
+	labelSelector := labels.SelectorFromSet(newLabels(request.cluster.Name, node.name(), false))
 	listOps := &client.ListOptions{Namespace: request.cluster.Namespace, LabelSelector: labelSelector}
 	err := request.client.List(context.TODO(), listOps, &podList)
 	if err != nil || len(podList.Items) < 1 {
-		return corev1.Pod{}, fmt.Errorf("Failed to get pods for node %v: %v", node.self.ObjectMeta.Name, err)
+		return corev1.Pod{}, fmt.Errorf("Failed to get pods for node %v: %v", node.name(), err)
 	}
 	return podList.Items[0], nil
 }
@@ -104,11 +104,11 @@ func (node *deploymentNode) isReady() bool {
 }
 
 func (node *deploymentNode) isRegistered(request *PostgreSQLRequest) (bool, error) {
-	pod, err := node.getPod(request)
+	result, err := node.db.isRegistered(node.name())
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("Failed to check node %v register status: %v", node.name(), err)
 	}
-	return isRegistered(request, pod)
+	return result, nil
 }
 
 func (node *deploymentNode) register(request *PostgreSQLRequest) error {

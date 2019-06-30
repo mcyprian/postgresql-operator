@@ -64,3 +64,37 @@ func (db *database) version() (string, error) {
 	}
 	return fields[1], nil
 }
+
+// repmgrNodesExists checks whether repmgr.nodes table was created already
+func (db *database) repmgrNodesExists() (bool, error) {
+	var result bool
+	row := db.engine.QueryRow("SELECT EXISTS ( SELECT 1 FROM information_schema.tables WHERE table_schema = 'repmgr' AND table_name = 'nodes')")
+	if err := row.Scan(&result); err != nil {
+		return false, err
+	}
+	return result, nil
+}
+
+// isRegistered checks whether node name is present in repmgr.nodes table
+func (db *database) isRegistered(nodeName string) (bool, error) {
+	var result int
+
+	// if repmgr.nodes table is missing, node is not registered
+	exists, err := db.repmgrNodesExists()
+	if err != nil {
+		return false, err
+	}
+	if !exists {
+		return false, nil
+	}
+
+	// repmgr.nodes table exists, check if it contains row for the node
+	query, err := db.engine.Prepare("SELECT COUNT(*) FROM repmgr.nodes WHERE node_name = $1")
+	if err != nil {
+		return false, err
+	}
+	if err := query.QueryRow(nodeName).Scan(&result); err != nil {
+		return false, err
+	}
+	return result == 1, nil
+}
