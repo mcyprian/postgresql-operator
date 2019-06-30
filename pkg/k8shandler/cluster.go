@@ -6,8 +6,9 @@ import (
 	postgresqlv1 "github.com/mcyprian/postgresql-operator/pkg/apis/postgresql/v1"
 )
 
+var idSequence int = 0
 var nodes map[string]Node
-var primaryNode Node
+var primaryNode Node = nil
 
 // CreateOrUpdateCluster iterates over all nodes in the current spec
 // and ensures cluster reflect desired state
@@ -68,20 +69,31 @@ func getOne(m map[string]postgresqlv1.PostgreSQLNode) (string, *postgresqlv1.Pos
 	return "", nil, fmt.Errorf("Empty map, cannot get a key")
 }
 
-// createPrimaryNode create primary node if it doesn't exists
+// createNode creates a new node, asigns id to it and adds it to the nodes map
+func createNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.PostgreSQLNode, primary bool) (Node, error) {
+	idSequence++
+	node := newDeploymentNode(request, name, specNode, idSequence, primary)
+	if err := node.create(request); err != nil {
+		return nil, err
+	}
+	nodes[name] = node
+	return node, nil
+}
+
+// createPrimaryNode creates primary node if it doesn't exists
 // TODO handle lost primary reference
 func createPrimaryNode(request *PostgreSQLRequest) error {
 	if primaryNode == nil {
 		name, specNode, err := getOne(request.cluster.Spec.Nodes)
+		log.Info(fmt.Sprintf("Creating new primary node %v", name))
 		if err != nil {
 			return fmt.Errorf("Nodes spec is empty, cannot choose master node")
 		}
-		node := newDeploymentNode(request, name, specNode, true)
-		if err := node.create(request); err != nil {
+		node, err := createNode(request, name, specNode, true)
+		if err != nil {
 			return err
 		}
 		primaryNode = node
-		nodes[name] = node
 	}
 	return nil
 }
@@ -98,12 +110,11 @@ func createOrUpdateNode(request *PostgreSQLRequest, name string, specNode *postg
 			return requeue, err
 		}
 	} else {
-		// Create a new node and add it into nodes map
-		node = newDeploymentNode(request, name, specNode, false)
-		if err := node.create(request); err != nil {
+		// Create a new node
+		_, err := createNode(request, name, specNode, false)
+		if err != nil {
 			return requeue, err
 		}
-		nodes[name] = node
 	}
 	return requeue, nil
 }

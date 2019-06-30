@@ -5,7 +5,7 @@ metadata:
 spec:
   managementState: managed
   nodes:
-    postgresql-node-0:
+    node-one:
       image: "mcyprian/postgresql-10-fedora29"
       resources:
         limits:
@@ -14,7 +14,7 @@ spec:
           memory: 512Mi
       storage:
         emptyDir: {}
-    postgresql-node-1:
+    node-two:
       image: "mcyprian/postgresql-10-fedora29"
       resources:
         limits:
@@ -23,5 +23,5 @@ spec:
           memory: 512Mi
       storage:
         emptyDir: {}
-    postgresql-node-2:
-      allOf: postgresql-node-1
+    node-one-clone:
+      allOf: node-one

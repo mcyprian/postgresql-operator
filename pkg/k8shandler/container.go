@@ -1,15 +1,21 @@
 package k8shandler
 
 import (
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 )
 
 // newDeployment returns a container object for postgresql pod
-func newPostgreSQLContainer(name string, resourceRequirements corev1.ResourceRequirements) corev1.Container {
+func newPostgreSQLContainer(name string, resourceRequirements corev1.ResourceRequirements, nodeId int, primary bool) corev1.Container {
+	var command string = defaultCntCommand
+	if primary {
+		command = defaultCntCommandPrimary
+	}
 	return corev1.Container{
 		Image:   defaultPgImage,
 		Name:    name,
-		Command: []string{defaultCntCommand},
+		Command: []string{command},
 		Ports: []corev1.ContainerPort{{
 			ContainerPort: postgresqlPort,
 			Name:          "postgresql",
@@ -24,11 +30,10 @@ func newPostgreSQLContainer(name string, resourceRequirements corev1.ResourceReq
 				},
 			},
 		},
-		// TODO: rewrite to k8s secrets
 		Env: []corev1.EnvVar{
 			corev1.EnvVar{
 				Name:  "POSTGRESQL_USER",
-				Value: "user",
+				Value: defaultPgUser,
 			},
 			corev1.EnvVar{
 				Name: "POSTGRESQL_PASSWORD",
@@ -41,15 +46,19 @@ func newPostgreSQLContainer(name string, resourceRequirements corev1.ResourceReq
 			},
 			corev1.EnvVar{
 				Name:  "POSTGRESQL_DATABASE",
-				Value: "db",
+				Value: defaultPgDatabase,
 			},
 			corev1.EnvVar{
-				Name:  "POSTGRESQL_MASTER_SERVICE_NAME",
-				Value: "postgresql-node-0",
+				Name:  "ENABLE_REPMGR",
+				Value: "true",
 			},
 			corev1.EnvVar{
-				Name:  "NODENAME",
+				Name:  "NODE_NAME",
 				Value: name,
+			},
+			corev1.EnvVar{
+				Name:  "NODE_ID",
+				Value: fmt.Sprintf("%v", nodeId),
 			},
 		},
 		Resources: resourceRequirements,

@@ -40,6 +40,13 @@ func Reconcile(request *PostgreSQLRequest) (bool, error) {
 		return true, err
 	}
 
+	reqLogger.Info("Running create or update for primary Service")
+	err := CreateOrUpdateService(request, "postgresql-primary", true)
+	if err != nil {
+		reqLogger.Error(err, "Failed to create or update Service")
+		return true, err
+	}
+
 	reqLogger.Info("Running create or update for Cluster")
 	requeue, err := CreateOrUpdateCluster(request)
 	if err != nil {
@@ -48,13 +55,6 @@ func Reconcile(request *PostgreSQLRequest) (bool, error) {
 	} else if requeue {
 		reqLogger.Info("Request requeued after create or update of Cluster")
 		return true, nil
-	}
-
-	reqLogger.Info("Running create or update for primary Service")
-	err = CreateOrUpdateService(request, "postgresql-primary", true)
-	if err != nil {
-		reqLogger.Error(err, "Failed to create or update Service")
-		return true, err
 	}
 	return false, nil
 }

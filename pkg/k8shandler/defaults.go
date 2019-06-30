@@ -4,7 +4,10 @@ const (
 	postgresqlPort = 5432
 
 	defaultPgImage            = "mcyprian/postgresql-10-fedora29"
-	defaultCntCommand         = "statefulset-startup"
+	defaultPgUser             = "user"
+	defaultPgDatabase         = "user"
+	defaultCntCommand         = "run-postgresql-slave"
+	defaultCntCommandPrimary  = "run-postgresql-master"
 	defaultHealthCheckCommand = "/usr/libexec/check-container"
 
 	defaultCPULimit      = "4000m"
