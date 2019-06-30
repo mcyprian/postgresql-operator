@@ -71,7 +71,7 @@ func repmgrRegister(request *PostgreSQLRequest, pod corev1.Pod, primary bool) er
 	if primary {
 		role = "primary"
 	}
-	execCommand := []string{"shell-entrypoint", "repmgr", "-f", "/etc/repmgr.conf", role, "register"}
+	execCommand := []string{"shell-entrypoint", "repmgr-register", role}
 	stdout, stderr, err := ExecToPodThroughAPI(request.restConfig, request.clientset, execCommand, pod.Spec.Containers[0].Name, pod.Name, request.cluster.Namespace, nil)
 	if err != nil {
 		log.Error(err, fmt.Sprintf("Repmgr register failed, stdout: %v, stderr: %v", stdout, stderr))
