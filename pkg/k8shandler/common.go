@@ -66,8 +66,12 @@ func newResourceRequirements(resRequirements corev1.ResourceRequirements) corev1
 }
 
 // repmgrRegister exec repmgr register command inside a pod
-func repmgrRegister(request *PostgreSQLRequest, pod corev1.Pod) error {
-	execCommand := []string{"shell-entrypoint", "repmgr-register"}
+func repmgrRegister(request *PostgreSQLRequest, pod corev1.Pod, primary bool) error {
+	var role string = "standby"
+	if primary {
+		role = "primary"
+	}
+	execCommand := []string{"shell-entrypoint", "repmgr", "-f", "/etc/repmgr.conf", role, "register"}
 	stdout, stderr, err := ExecToPodThroughAPI(request.restConfig, request.clientset, execCommand, pod.Spec.Containers[0].Name, pod.Name, request.cluster.Namespace, nil)
 	if err != nil {
 		log.Error(err, fmt.Sprintf("Repmgr register failed, stdout: %v, stderr: %v", stdout, stderr))

@@ -20,9 +20,9 @@ type deploymentNode struct {
 	initPrimary bool
 }
 
-func newDeploymentNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.PostgreSQLNode, primary bool) *deploymentNode {
+func newDeploymentNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.PostgreSQLNode, nodeId int, primary bool) *deploymentNode {
 	return &deploymentNode{
-		self:        newDeployment(request, name, specNode, primary),
+		self:        newDeployment(request, name, specNode, nodeId, primary),
 		svc:         newClusterIPService(request, name, primary),
 		db:          newRepmgrDatabase(name),
 		initPrimary: primary,
@@ -39,7 +39,7 @@ func (node *deploymentNode) create(request *PostgreSQLRequest) error {
 			return fmt.Errorf("Failed to create node resource %v", err)
 		}
 	}
-	if err := CreateOrUpdateService(request, node.svc.ObjectMeta.Name, node.initPrimary); err != nil {
+	if err := CreateOrUpdateService(request, node.svc.ObjectMeta.Name, false); err != nil {
 		return fmt.Errorf("Failed to create service resource %v", err)
 	}
 	if err := node.db.initialize(); err != nil {
@@ -51,7 +51,7 @@ func (node *deploymentNode) create(request *PostgreSQLRequest) error {
 
 func (node *deploymentNode) update(request *PostgreSQLRequest, specNode *postgresqlv1.PostgreSQLNode) (bool, error) {
 	// TODO update node to reflect spec
-	if err := CreateOrUpdateService(request, node.svc.ObjectMeta.Name, node.initPrimary); err != nil {
+	if err := CreateOrUpdateService(request, node.svc.ObjectMeta.Name, false); err != nil {
 		return false, fmt.Errorf("Failed to create service resource %v", err)
 	}
 	current := node.self.DeepCopy()
@@ -116,5 +116,5 @@ func (node *deploymentNode) register(request *PostgreSQLRequest) error {
 	if err != nil {
 		return err
 	}
-	return repmgrRegister(request, pod)
+	return repmgrRegister(request, pod, node.initPrimary)
 }
