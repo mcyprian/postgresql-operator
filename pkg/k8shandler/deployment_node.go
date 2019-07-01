@@ -40,7 +40,8 @@ func (node *deploymentNode) create(request *PostgreSQLRequest) error {
 	if err := CreateOrUpdateService(request, node.svc.ObjectMeta.Name, false); err != nil {
 		return fmt.Errorf("Failed to create service resource %v", err)
 	}
-	if err := node.db.initialize(); err != nil {
+	node.db.initialize()
+	if err := node.db.err(); err != nil {
 		return fmt.Errorf("Failed to initialize repmgr database connection %v", err)
 	}
 
@@ -72,17 +73,17 @@ func (node *deploymentNode) delete(request *PostgreSQLRequest) error {
 }
 
 func (node *deploymentNode) status() postgresqlv1.PostgreSQLNodeStatus {
-	// TODO Return node role and status
-	version, err := node.db.version()
-	if err != nil {
-		log.Error(err, "Failed to execute SQL query")
-	}
 
-	return postgresqlv1.PostgreSQLNodeStatus{
+	status := postgresqlv1.PostgreSQLNodeStatus{
 		DeploymentName: node.self.ObjectMeta.Name,
 		ServiceName:    node.svc.ObjectMeta.Name,
-		PgVersion:      version,
+		PgVersion:      node.db.version(),
+		Role:           node.db.getRole(node.name()),
 	}
+	if err := node.db.err(); err != nil {
+		log.Error(err, "Failed to execute SQL query")
+	}
+	return status
 }
 
 // getPod returns pod which was created by the node
@@ -102,8 +103,8 @@ func (node *deploymentNode) isReady() bool {
 }
 
 func (node *deploymentNode) isRegistered(request *PostgreSQLRequest) (bool, error) {
-	result, err := node.db.isRegistered(node.name())
-	if err != nil {
+	result := node.db.isRegistered(node.name())
+	if err := node.db.err(); err != nil {
 		return false, fmt.Errorf("Failed to check node %v register status: %v", node.name(), err)
 	}
 	return result, nil

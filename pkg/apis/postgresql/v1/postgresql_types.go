@@ -70,6 +70,7 @@ type PostgreSQLNodeRole string
 const (
 	PostgreSQLNodeRolePrimary = "primary"
 	PostgreSQLNodeRoleStandby = "standby"
+	PostgreSQLNodeRoleUnknown = "unknown"
 )
 
 // PostgreSQLNodeStatus represents the status of individual node
