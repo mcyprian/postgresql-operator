@@ -14,18 +14,16 @@ import (
 )
 
 type deploymentNode struct {
-	self        *appsv1.Deployment
-	svc         *corev1.Service
-	db          *database
-	initPrimary bool
+	self *appsv1.Deployment
+	svc  *corev1.Service
+	db   *database
 }
 
 func newDeploymentNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.PostgreSQLNode, nodeId int, primary bool) *deploymentNode {
 	return &deploymentNode{
-		self:        newDeployment(request, name, specNode, nodeId, primary),
-		svc:         newClusterIPService(request, name, primary),
-		db:          newRepmgrDatabase(name),
-		initPrimary: primary,
+		self: newDeployment(request, name, specNode, nodeId, primary),
+		svc:  newClusterIPService(request, name, primary),
+		db:   newRepmgrDatabase(name),
 	}
 }
 
@@ -112,9 +110,14 @@ func (node *deploymentNode) isRegistered(request *PostgreSQLRequest) (bool, erro
 }
 
 func (node *deploymentNode) register(request *PostgreSQLRequest) error {
+	var primary bool = false
+	role, _ := node.self.ObjectMeta.Labels["node-role"]
+	if role == "primary" {
+		primary = true
+	}
 	pod, err := node.getPod(request)
 	if err != nil {
 		return err
 	}
-	return repmgrRegister(request, pod, node.initPrimary)
+	return repmgrRegister(request, pod, primary)
 }
