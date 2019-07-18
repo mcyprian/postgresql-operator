@@ -23,37 +23,30 @@ func CreateOrUpdateCluster(request *PostgreSQLRequest) (bool, error) {
 	if request.cluster.Status.Nodes == nil {
 		request.cluster.Status.Nodes = make(map[string]postgresqlv1.PostgreSQLNodeStatus)
 	}
-	if err := createPrimaryNode(request); err != nil {
-		return false, err
+	if primaryNode == nil {
+		if err := createPrimaryNode(request); err != nil {
+			return false, err
+		}
 	}
 	// Loop over all nodes listed in the spec
 	for name, specNode := range request.cluster.Spec.Nodes {
 		requeue, err = createOrUpdateNode(request, name, &specNode)
 		if err != nil {
-			return false, err
+			log.Error(err, "Non-critical issue")
 		}
 		node, _ := nodes[name]
 		if node.isReady() {
-			registered, err := node.isRegistered(request)
-			if err != nil {
-				log.Error(err, "Non-critical issue")
-			}
-			if !registered {
-				// Register node to repmgr cluster
-				if err := node.register(request); err != nil {
-					return false, err
-				}
-				repmgrClusterUp = false
-			}
 			if err := updateNodeStatus(request, node); err != nil {
-				return false, err
+				log.Error(err, "Non-critical issue")
+				//return false, err
 			}
 		} else {
 			repmgrClusterUp = false
 		}
 	}
 	if err := deleteExtraNodes(request); err != nil {
-		return false, err
+		log.Error(err, "Non-critical issue")
+		//	return false, err
 	}
 	log.Info(fmt.Sprintf("Nodes after update: %v", nodes))
 	if !repmgrClusterUp {
@@ -83,18 +76,16 @@ func createNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.
 // createPrimaryNode creates primary node if it doesn't exists
 // TODO handle lost primary reference
 func createPrimaryNode(request *PostgreSQLRequest) error {
-	if primaryNode == nil {
-		name, specNode, err := getOne(request.cluster.Spec.Nodes)
-		log.Info(fmt.Sprintf("Creating new primary node %v", name))
-		if err != nil {
-			return fmt.Errorf("Nodes spec is empty, cannot choose master node")
-		}
-		node, err := createNode(request, name, specNode, true)
-		if err != nil {
-			return err
-		}
-		primaryNode = node
+	name, specNode, err := getOne(request.cluster.Spec.Nodes)
+	log.Info(fmt.Sprintf("Creating new primary node %v", name))
+	if err != nil {
+		return fmt.Errorf("Nodes spec is empty, cannot choose master node")
 	}
+	node, err := createNode(request, name, specNode, true)
+	if err != nil {
+		return err
+	}
+	primaryNode = node
 	return nil
 }
 
