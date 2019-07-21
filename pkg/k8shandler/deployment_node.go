@@ -22,7 +22,7 @@ type deploymentNode struct {
 func newDeploymentNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.PostgreSQLNode, nodeId int, primary bool) *deploymentNode {
 	return &deploymentNode{
 		self: newDeployment(request, name, specNode, nodeId, primary),
-		svc:  newClusterIPService(request, name, primary),
+		svc:  newClusterIPService(request, name, false),
 		db:   newRepmgrDatabase(name),
 	}
 }
@@ -48,7 +48,7 @@ func (node *deploymentNode) create(request *PostgreSQLRequest) error {
 	return nil
 }
 
-func (node *deploymentNode) update(request *PostgreSQLRequest, specNode *postgresqlv1.PostgreSQLNode) (bool, error) {
+func (node *deploymentNode) update(request *PostgreSQLRequest, specNode *postgresqlv1.PostgreSQLNode, writableDB *database) (bool, error) {
 	// TODO update node to reflect spec
 	if err := CreateOrUpdateService(request, node.svc.ObjectMeta.Name, false); err != nil {
 		return false, fmt.Errorf("Failed to create service resource %v", err)
@@ -56,6 +56,24 @@ func (node *deploymentNode) update(request *PostgreSQLRequest, specNode *postgre
 	current := node.self.DeepCopy()
 	if err := request.client.Get(context.TODO(), types.NamespacedName{Name: node.name(), Namespace: request.cluster.Namespace}, current); err != nil {
 		return false, fmt.Errorf("Failed to get deployment %v: %v", node.name(), err)
+	}
+	// Update labels if role was changed inside repmgr
+	if node.isReady() {
+		role, priority := node.db.getNodeInfo(node.name())
+		if err := node.db.err(); err != nil {
+			log.Error(err, fmt.Sprintf("Failed to query role of node %v", node.name()))
+		} else {
+			if priority != specNode.Priority {
+				writableDB.updateNodePriority(node.name(), specNode.Priority)
+				if err := node.db.err(); err != nil {
+					log.Error(err, fmt.Sprintf("Failed to update priority of node %v", node.name()))
+				}
+			}
+		}
+
+		if err := request.client.Update(context.TODO(), current); err != nil {
+			return false, fmt.Errorf("Failed to update deployment %v: %v", node.name(), err)
+		}
 	}
 	node.self = current
 	return false, nil
@@ -73,17 +91,22 @@ func (node *deploymentNode) delete(request *PostgreSQLRequest) error {
 }
 
 func (node *deploymentNode) status() postgresqlv1.PostgreSQLNodeStatus {
-
+	role, priority := node.db.getNodeInfo(node.name())
 	status := postgresqlv1.PostgreSQLNodeStatus{
 		DeploymentName: node.self.ObjectMeta.Name,
 		ServiceName:    node.svc.ObjectMeta.Name,
 		PgVersion:      node.db.version(),
-		Role:           node.db.getRole(node.name()),
+		Role:           role,
+		Priority:       priority,
 	}
 	if err := node.db.err(); err != nil {
-		log.Error(err, "Failed to execute SQL query")
+		log.Error(err, "Failed to get node info")
 	}
 	return status
+}
+
+func (node *deploymentNode) dbClient() *database {
+	return node.db
 }
 
 // getPod returns pod which was created by the node

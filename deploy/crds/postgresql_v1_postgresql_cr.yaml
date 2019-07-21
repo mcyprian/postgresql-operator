@@ -7,6 +7,7 @@ spec:
   nodes:
     node-one:
       image: "mcyprian/postgresql-10-fedora29"
+      priority: 100
       resources:
         limits:
           memory: 1Gi
@@ -16,6 +17,7 @@ spec:
         emptyDir: {}
     node-two:
       image: "mcyprian/postgresql-10-fedora29"
+      priority: 60
       resources:
         limits:
           memory: 1Gi
@@ -24,4 +26,10 @@ spec:
       storage:
         emptyDir: {}
     node-one-clone:
-      allOf: node-one
+      priority: 30
+      storage:
+        emptyDir: {}
+    node-extra:
+      priority: 0
+      storage:
+        emptyDir: {}
