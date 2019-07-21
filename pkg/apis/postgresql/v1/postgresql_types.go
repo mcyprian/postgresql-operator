@@ -50,7 +50,8 @@ type PostgreSQLSpec struct {
 // +k8s:openapi-gen=true
 type PostgreSQLNode struct {
 	Image     string                      `json:"image,omitempty"`
-	Resources corev1.ResourceRequirements `json:"resources"`
+	Priority  int                         `json:"priority"`
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 	Storage   PostgreSQLStorageSpec       `json:"storage"`
 }
 
@@ -80,6 +81,7 @@ type PostgreSQLNodeStatus struct {
 	PgVersion      string             `json:"pgversion,omitempty"`
 	Status         string             `json:"status,omitempty"`
 	Role           PostgreSQLNodeRole `json:"role,omitempty"`
+	Priority       int                `json:"priority"`
 }
 
 func init() {

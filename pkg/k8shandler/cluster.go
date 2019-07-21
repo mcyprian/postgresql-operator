@@ -55,11 +55,25 @@ func CreateOrUpdateCluster(request *PostgreSQLRequest) (bool, error) {
 	return requeue, nil
 }
 
-func getOne(m map[string]postgresqlv1.PostgreSQLNode) (string, *postgresqlv1.PostgreSQLNode, error) {
-	for name, node := range m {
-		return name, &node, nil
+func getHighestPriority(nodeMap map[string]postgresqlv1.PostgreSQLNode) (string, *postgresqlv1.PostgreSQLNode, error) {
+	var highestPriority int = 0
+	var highestName string = ""
+
+	if len(nodeMap) == 0 {
+		return "", nil, fmt.Errorf("Empty map, cannot choose a primary node")
 	}
-	return "", nil, fmt.Errorf("Empty map, cannot get a key")
+
+	for name, node := range nodeMap {
+		if highestName == "" {
+			highestName = name
+			highestPriority = node.Priority
+		} else if node.Priority > highestPriority {
+			highestName = name
+			highestPriority = node.Priority
+		}
+	}
+	node := nodeMap[highestName]
+	return highestName, &node, nil
 }
 
 // createNode creates a new node, asigns id to it and adds it to the nodes map
@@ -76,7 +90,7 @@ func createNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.
 // createPrimaryNode creates primary node if it doesn't exists
 // TODO handle lost primary reference
 func createPrimaryNode(request *PostgreSQLRequest) error {
-	name, specNode, err := getOne(request.cluster.Spec.Nodes)
+	name, specNode, err := getHighestPriority(request.cluster.Spec.Nodes)
 	log.Info(fmt.Sprintf("Creating new primary node %v", name))
 	if err != nil {
 		return fmt.Errorf("Nodes spec is empty, cannot choose master node")
@@ -96,7 +110,7 @@ func createOrUpdateNode(request *PostgreSQLRequest, name string, specNode *postg
 	node, ok := nodes[name]
 	if ok {
 		// Update existing node
-		requeue, err := node.update(request, specNode)
+		requeue, err := node.update(request, specNode, primaryNode.dbClient())
 		if err != nil {
 			return requeue, err
 		}

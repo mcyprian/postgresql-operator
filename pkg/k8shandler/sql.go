@@ -124,30 +124,44 @@ func (db *database) isRegistered(nodeName string) bool {
 }
 
 // getRole retrieves current node role inside repmgr cluster
-func (db *database) getRole(nodeName string) postgresqlv1.PostgreSQLNodeRole {
-	var result string
+func (db *database) getNodeInfo(nodeName string) (postgresqlv1.PostgreSQLNodeRole, int) {
+	var nodeType postgresqlv1.PostgreSQLNodeRole
+	var nodePriority int
 	var stmt *sql.Stmt
 
+	unknownNodePriority := -1
+
 	if db.cachedErr != nil {
-		return postgresqlv1.PostgreSQLNodeRoleUnknown
+		return postgresqlv1.PostgreSQLNodeRoleUnknown, unknownNodePriority
 	}
 
 	// if repmgr.nodes table is missing, role is unknown
 	exists := db.repmgrNodesExists()
 	if db.cachedErr != nil || !exists {
-		return postgresqlv1.PostgreSQLNodeRoleUnknown
+		return postgresqlv1.PostgreSQLNodeRoleUnknown, unknownNodePriority
 	}
 
 	// repmgr.nodes table exists, check the role
-	stmt, db.cachedErr = db.engine.Prepare("SELECT type FROM repmgr.nodes WHERE node_name = $1")
+	stmt, db.cachedErr = db.engine.Prepare("SELECT type, priority FROM repmgr.nodes WHERE node_name = $1")
 	if db.cachedErr != nil {
-		return postgresqlv1.PostgreSQLNodeRoleUnknown
+		return postgresqlv1.PostgreSQLNodeRoleUnknown, unknownNodePriority
 	}
-	if db.cachedErr = stmt.QueryRow(nodeName).Scan(&result); db.cachedErr != nil {
-		return postgresqlv1.PostgreSQLNodeRoleUnknown
+	if db.cachedErr = stmt.QueryRow(nodeName).Scan(&nodeType, &nodePriority); db.cachedErr != nil {
+		return postgresqlv1.PostgreSQLNodeRoleUnknown, unknownNodePriority
 	}
-	if result == postgresqlv1.PostgreSQLNodeRolePrimary {
-		return postgresqlv1.PostgreSQLNodeRolePrimary
+	return nodeType, nodePriority
+}
+
+// updateNodePriority updates failover priority of selected node
+func (db *database) updateNodePriority(nodeName string, priority int) {
+	if db.cachedErr != nil {
+		return
 	}
-	return postgresqlv1.PostgreSQLNodeRoleStandby
+	// can't update priority, if repmgr.nodes table is missing
+	exists := db.repmgrNodesExists()
+	if db.cachedErr != nil || !exists {
+		return
+	}
+	stmt := "UPDATE repmgr.nodes SET priority = $1 WHERE node_name = $2"
+	_, db.cachedErr = db.engine.Exec(stmt, priority, nodeName)
 }
