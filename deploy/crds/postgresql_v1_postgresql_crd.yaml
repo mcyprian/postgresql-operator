@@ -10,8 +10,6 @@ spec:
     plural: postgresqls
     singular: postgresql
   scope: Namespaced
-  subresources:
-    status: {}
   validation:
     openAPIV3Schema:
       properties:
@@ -28,8 +26,59 @@ spec:
         metadata:
           type: object
         spec:
+          properties:
+            managementState:
+              type: string
+            nodes:
+              additionalProperties:
+                properties:
+                  image:
+                    type: string
+                  priority:
+                    format: int64
+                    type: integer
+                  resources:
+                    type: object
+                  storage:
+                    properties:
+                      size:
+                        type: string
+                      storageClassName:
+                        type: string
+                    type: object
+                required:
+                - priority
+                - storage
+                type: object
+              type: object
+          required:
+          - managementState
+          - nodes
           type: object
         status:
+          properties:
+            nodes:
+              additionalProperties:
+                properties:
+                  deploymentName:
+                    type: string
+                  pgversion:
+                    type: string
+                  priority:
+                    format: int64
+                    type: integer
+                  role:
+                    type: string
+                  serviceName:
+                    type: string
+                  status:
+                    type: string
+                required:
+                - priority
+                type: object
+              type: object
+          required:
+          - nodes
           type: object
   version: v1
   versions:
