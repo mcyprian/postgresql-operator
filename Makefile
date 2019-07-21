@@ -30,6 +30,9 @@ down:
 	$(OC) delete -f $T ;\
 	)
 
+test-unit:
+	@go test -v ./pkg/... ./cmd/...
+
 fmt:
 	@gofmt -l -w cmd && \
 	gofmt -l -w pkg
