@@ -39,10 +39,15 @@ func newDeployment(request *PostgreSQLRequest, name string, node *postgresqlv1.P
 				Spec: corev1.PodSpec{
 					Hostname:   name,
 					Containers: []corev1.Container{newPostgreSQLContainer(name, resourceRequirements, nodeId, primary)},
+					Volumes: []corev1.Volume{
+						corev1.Volume{Name: "config-volume"}},
 				},
 			},
 		},
 	}
+	configMapVolumeSource := &corev1.ConfigMapVolumeSource{}
+	configMapVolumeSource.Name = "repmgr-conf"
+	deployment.Spec.Template.Spec.Volumes[0].ConfigMap = configMapVolumeSource
 	// Set PostgreSQL instance as the owner and controller
 	controllerutil.SetControllerReference(request.cluster, deployment, request.scheme)
 	return deployment

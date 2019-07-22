@@ -40,6 +40,12 @@ func Reconcile(request *PostgreSQLRequest) (bool, error) {
 		return true, err
 	}
 
+	reqLogger.Info("Running create or update for ConfigMap")
+	if err := CreateOrUpdateConfigMap(request); err != nil {
+		reqLogger.Error(err, "Failed to create or update ConfigMap")
+		return true, err
+	}
+
 	reqLogger.Info("Running create or update for primary Service")
 	err := CreateOrUpdateService(request, "postgresql-primary", true)
 	if err != nil {

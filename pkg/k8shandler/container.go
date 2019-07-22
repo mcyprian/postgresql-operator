@@ -61,6 +61,7 @@ func newPostgreSQLContainer(name string, resourceRequirements corev1.ResourceReq
 				Value: fmt.Sprintf("%v", nodeId),
 			},
 		},
-		Resources: resourceRequirements,
+		Resources:    resourceRequirements,
+		VolumeMounts: []corev1.VolumeMount{corev1.VolumeMount{Name: "config-volume", MountPath: "/app/repmgr.conf", SubPath: "repmgr.conf"}},
 	}
 }

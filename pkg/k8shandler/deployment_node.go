@@ -69,6 +69,15 @@ func (node *deploymentNode) update(request *PostgreSQLRequest, specNode *postgre
 					log.Error(err, fmt.Sprintf("Failed to update priority of node %v", node.name()))
 				}
 			}
+			if role == postgresqlv1.PostgreSQLNodeRolePrimary {
+				current.ObjectMeta.Labels["node-role"] = "primary"
+				current.Spec.Template.ObjectMeta.Labels["node-role"] = "primary"
+				current.Spec.Template.Spec.Containers[0].Command = []string{defaultCntCommandPrimary}
+			} else {
+				delete(current.ObjectMeta.Labels, "node-role")
+				delete(current.Spec.Template.ObjectMeta.Labels, "node-role")
+				current.Spec.Template.Spec.Containers[0].Command = []string{defaultCntCommand}
+			}
 		}
 
 		if err := request.client.Update(context.TODO(), current); err != nil {
