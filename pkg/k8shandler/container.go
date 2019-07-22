@@ -6,8 +6,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// newDeployment returns a container object for postgresql pod
-func newPostgreSQLContainer(name string, resourceRequirements corev1.ResourceRequirements, nodeId int, primary bool) corev1.Container {
+// newContainer returns a container object for postgresql pod
+func newContainer(name string, resourceRequirements corev1.ResourceRequirements, nodeId int, primary bool) corev1.Container {
 	var command string = defaultCntCommand
 	if primary {
 		command = defaultCntCommandPrimary
@@ -62,5 +62,11 @@ func newPostgreSQLContainer(name string, resourceRequirements corev1.ResourceReq
 			},
 		},
 		Resources: resourceRequirements,
+		VolumeMounts: []corev1.VolumeMount{
+			corev1.VolumeMount{
+				Name:      name,
+				MountPath: postgreSQLDataPath,
+			},
+		},
 	}
 }

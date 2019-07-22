@@ -59,7 +59,7 @@ func (node *deploymentNode) update(request *PostgreSQLRequest, specNode *postgre
 	}
 	// Update labels if role was changed inside repmgr
 	if node.isReady() {
-		role, priority := node.db.getNodeInfo(node.name())
+		_, priority := node.db.getNodeInfo(node.name())
 		if err := node.db.err(); err != nil {
 			log.Error(err, fmt.Sprintf("Failed to query role of node %v", node.name()))
 		} else {

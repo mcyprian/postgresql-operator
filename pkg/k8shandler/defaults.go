@@ -14,4 +14,6 @@ const (
 	defaultCPURequest    = "100m"
 	defaultMemoryLimit   = "4Gi"
 	defaultMemoryRequest = "1Gi"
+
+	postgreSQLDataPath = "/var/lib/pgsql/data/"
 )
