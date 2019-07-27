@@ -3,6 +3,7 @@ package k8shandler
 import (
 	"fmt"
 
+	"github.com/sethvargo/go-password/password"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -80,4 +81,10 @@ func repmgrRegister(request *PostgreSQLRequest, pod corev1.Pod, primary bool) er
 		log.Info(fmt.Sprintf("Repmgr register executed: stdout: %v, stderr: %v", stdout, stderr))
 	}
 	return nil
+}
+
+// generatePassword generates high-entropy random password, 32 characters long, 5 digits, 5 symbols
+// including upper and lower case letters
+func generatePassword() (string, error) {
+	return password.Generate(32, 5, 5, false, false)
 }

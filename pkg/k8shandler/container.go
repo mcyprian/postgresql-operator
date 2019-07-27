@@ -49,8 +49,21 @@ func newContainer(name string, resourceRequirements corev1.ResourceRequirements,
 				Value: defaultPgDatabase,
 			},
 			corev1.EnvVar{
+				Name:  "PGPASSFILE",
+				Value: "/var/lib/pgsql/.pgpass",
+			},
+			corev1.EnvVar{
 				Name:  "ENABLE_REPMGR",
 				Value: "true",
+			},
+			corev1.EnvVar{
+				Name: "REPMGR_PASSWORD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{Name: "postgresql"},
+						Key:                  "repmgr-password",
+					},
+				},
 			},
 			corev1.EnvVar{
 				Name:  "NODE_NAME",

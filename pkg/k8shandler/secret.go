@@ -3,6 +3,8 @@ package k8shandler
 import (
 	"context"
 	"fmt"
+	"os"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -11,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func newSecret(request *PostgreSQLRequest, name string) *corev1.Secret {
+func newSecret(request *PostgreSQLRequest, name string, repmgrPassword string, userPassword string) *corev1.Secret {
 	secret := &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: corev1.SchemeGroupVersion.String(),
@@ -22,9 +24,8 @@ func newSecret(request *PostgreSQLRequest, name string) *corev1.Secret {
 			Namespace: request.cluster.Namespace,
 		},
 		StringData: map[string]string{
-			"database-user":     "${POSTGRESQL_USER}",
-			"database-password": "${POSTGRESQL_PASSWORD}",
-			"database-name":     "${POSTGRESQL_DATABASE}",
+			"database-password": userPassword,
+			"repmgr-password":   repmgrPassword,
 		},
 	}
 	// Set PostgreSQL instance as the owner and controller
@@ -35,10 +36,20 @@ func newSecret(request *PostgreSQLRequest, name string) *corev1.Secret {
 // CreateOrUpdateSecret creates a new Secret if doesn't exists and ensures all its
 // attributes has desired values
 func CreateOrUpdateSecret(request *PostgreSQLRequest) error {
-	secret := newSecret(request, "postgresql")
-
-	err := request.client.Create(context.TODO(), secret)
+	repmgrPassword, err := generatePassword()
 	if err != nil {
+		return fmt.Errorf("Failed to generate password for repmgr user: %v", err)
+	}
+	userPassword := os.Getenv("POSTGRESQL_PASSWORD")
+	if userPassword == "" {
+		userPassword, err = generatePassword()
+		if err != nil {
+			return fmt.Errorf("Failed to generate password for database user: %v", err)
+		}
+	}
+	secret := newSecret(request, "postgresql", repmgrPassword, userPassword)
+
+	if err = request.client.Create(context.TODO(), secret); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("Failure constructing %v secret: %v", secret.Name, err)
 		}
