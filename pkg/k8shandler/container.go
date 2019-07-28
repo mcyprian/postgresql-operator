@@ -7,8 +7,8 @@ import (
 )
 
 // newContainer returns a container object for postgresql pod
-func newContainer(name string, resourceRequirements corev1.ResourceRequirements, nodeId int, primary bool) corev1.Container {
-	var command string = defaultCntCommand
+func newContainer(name string, resourceRequirements corev1.ResourceRequirements, nodeID int, primary bool) corev1.Container {
+	var command = defaultCntCommand
 	if primary {
 		command = defaultCntCommandPrimary
 	}
@@ -72,7 +72,7 @@ func newContainer(name string, resourceRequirements corev1.ResourceRequirements,
 			},
 			corev1.EnvVar{
 				Name:  "NODE_ID",
-				Value: fmt.Sprintf("%v", nodeId),
+				Value: fmt.Sprintf("%v", nodeID),
 			},
 		},
 		Resources: resourceRequirements,

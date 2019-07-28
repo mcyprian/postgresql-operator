@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	_ "github.com/lib/pq"
+	_ "github.com/lib/pq" // initialize pq package
 	postgresqlv1 "github.com/mcyprian/postgresql-operator/pkg/apis/postgresql/v1"
 )
 

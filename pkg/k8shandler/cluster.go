@@ -3,18 +3,19 @@ package k8shandler
 import (
 	"context"
 	"fmt"
+
 	postgresqlv1 "github.com/mcyprian/postgresql-operator/pkg/apis/postgresql/v1"
 )
 
-var idSequence int = 0
+var idSequence int
 var nodes map[string]Node
-var primaryNode Node = nil
+var primaryNode Node
 
 // CreateOrUpdateCluster iterates over all nodes in the current spec
 // and ensures cluster reflect desired state
 func CreateOrUpdateCluster(request *PostgreSQLRequest) (bool, error) {
 	var err error
-	var requeue bool = false
+	var requeue = false
 	var repmgrClusterUp = true // flag to track whether all nodes are registered to repmgr cluster
 
 	if nodes == nil {
@@ -56,8 +57,8 @@ func CreateOrUpdateCluster(request *PostgreSQLRequest) (bool, error) {
 }
 
 func getHighestPriority(nodeMap map[string]postgresqlv1.PostgreSQLNode) (string, *postgresqlv1.PostgreSQLNode, error) {
-	var highestPriority int = 0
-	var highestName string = ""
+	var highestPriority int
+	var highestName string
 
 	if len(nodeMap) == 0 {
 		return "", nil, fmt.Errorf("Empty map, cannot choose a primary node")
@@ -106,7 +107,7 @@ func createPrimaryNode(request *PostgreSQLRequest) error {
 // createOrUpdateNode creates a node in case it's not present in nodes map, updates the existing one
 // otherwise
 func createOrUpdateNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.PostgreSQLNode) (bool, error) {
-	var requeue bool = false
+	var requeue = false
 	node, ok := nodes[name]
 	if ok {
 		// Update existing node

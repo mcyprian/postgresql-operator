@@ -4,6 +4,7 @@ import (
 	postgresqlv1 "github.com/mcyprian/postgresql-operator/pkg/apis/postgresql/v1"
 )
 
+// Node interface represents a single PostgreSQL node in the cluster
 type Node interface {
 	name() string
 	create(request *PostgreSQLRequest) error

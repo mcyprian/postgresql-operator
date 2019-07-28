@@ -1,8 +1,9 @@
 package k8shandler
 
 import (
-	postgresqlv1 "github.com/mcyprian/postgresql-operator/pkg/apis/postgresql/v1"
 	"testing"
+
+	postgresqlv1 "github.com/mcyprian/postgresql-operator/pkg/apis/postgresql/v1"
 )
 
 var getHighestTests = []struct {

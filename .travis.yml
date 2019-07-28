@@ -10,6 +10,7 @@ jobs:
     script:
     - make fmt
     - make vet
+    - make ensure-imports
   - stage: build and test
     script:
     - make dep

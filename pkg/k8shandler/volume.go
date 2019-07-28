@@ -3,6 +3,7 @@ package k8shandler
 import (
 	"context"
 	"fmt"
+
 	postgresqlv1 "github.com/mcyprian/postgresql-operator/pkg/apis/postgresql/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"

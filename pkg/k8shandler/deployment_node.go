@@ -19,9 +19,9 @@ type deploymentNode struct {
 	db   *database
 }
 
-func newDeploymentNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.PostgreSQLNode, nodeId int, primary bool) *deploymentNode {
+func newDeploymentNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.PostgreSQLNode, nodeID int, primary bool) *deploymentNode {
 	return &deploymentNode{
-		self: newDeployment(request, name, specNode, nodeId, primary),
+		self: newDeployment(request, name, specNode, nodeID, primary),
 		svc:  newClusterIPService(request, name, false),
 		db:   newRepmgrDatabase(name),
 	}
@@ -134,7 +134,7 @@ func (node *deploymentNode) isRegistered(request *PostgreSQLRequest) (bool, erro
 }
 
 func (node *deploymentNode) register(request *PostgreSQLRequest) error {
-	var primary bool = false
+	var primary = false
 	role, _ := node.self.ObjectMeta.Labels["node-role"]
 	if role == "primary" {
 		primary = true

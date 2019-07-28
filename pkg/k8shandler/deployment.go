@@ -10,7 +10,7 @@ import (
 )
 
 //newDeployment returns a postgresql node Deployment object
-func newDeployment(request *PostgreSQLRequest, name string, node *postgresqlv1.PostgreSQLNode, nodeId int, primary bool) *appsv1.Deployment {
+func newDeployment(request *PostgreSQLRequest, name string, node *postgresqlv1.PostgreSQLNode, nodeID int, primary bool) *appsv1.Deployment {
 	var single int32 = 1
 	labels := newLabels(request.cluster.Name, name, primary)
 	resourceRequirements := newResourceRequirements(node.Resources)
@@ -38,7 +38,7 @@ func newDeployment(request *PostgreSQLRequest, name string, node *postgresqlv1.P
 				},
 				Spec: corev1.PodSpec{
 					Hostname:   name,
-					Containers: []corev1.Container{newContainer(name, resourceRequirements, nodeId, primary)},
+					Containers: []corev1.Container{newContainer(name, resourceRequirements, nodeID, primary)},
 					Volumes:    []corev1.Volume{newVolume(request, name, node)},
 				},
 			},

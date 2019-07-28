@@ -8,6 +8,7 @@ import (
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// PostgreSQLRequest encapsulates variables needed for request handling
 type PostgreSQLRequest struct {
 	client     client.Client
 	cluster    *postgresqlv1.PostgreSQL
@@ -16,6 +17,7 @@ type PostgreSQLRequest struct {
 	clientset  *kubernetes.Clientset
 }
 
+// NewPostgreSQLRequest constructs a PostgreSQLRequest
 func NewPostgreSQLRequest(client client.Client, cluster *postgresqlv1.PostgreSQL, scheme *runtime.Scheme) *PostgreSQLRequest {
 	var clientset *kubernetes.Clientset
 	config, err := rest.InClusterConfig()
@@ -30,6 +32,7 @@ func NewPostgreSQLRequest(client client.Client, cluster *postgresqlv1.PostgreSQL
 	return &PostgreSQLRequest{client: client, cluster: cluster, scheme: scheme, restConfig: config, clientset: clientset}
 }
 
+// Reconcile creates or updates all the resources managed by the operator
 func Reconcile(request *PostgreSQLRequest) (bool, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.cluster.Namespace, "Request.Name", request.cluster.Name)
 	reqLogger.Info("Reconciling PostgreSQL")

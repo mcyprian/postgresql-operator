@@ -10,9 +10,13 @@ DEPLOYMENT_TARGETS= \
 OPERATOR_IMAGE=mcyprian/postgresql-operator
 OPERATOR_VERSION=v0.0.1
 
-.PHONY: all build push up down fmt test-e2e test-unit
+.PHONY: all linters test build push up down test-e2e test-unit fmt imports ensure-imports lint
 
 all: build push
+
+linters: fmt vet ensure-imports lint
+
+test: test-unit test-e2e
 
 build:
 	@operator-sdk build $(OPERATOR_IMAGE):$(OPERATOR_VERSION)
@@ -43,6 +47,19 @@ fmt:
 
 vet:
 	@go vet ./...
+
+lint:
+	@golint -set_exit_status pkg/k8shandler && \
+	golint -set_exit_status pkg/apis && \
+	golint -set_exit_status test/e2e 
+
+imports:
+	@goimports -w cmd pkg test
+
+ensure-imports:
+	@if [ $$(goimports -l pkg test | wc -l) -ne 0 ]; \
+	then echo "Formatting of some files differs from goimport's"; false; \
+	fi
 
 dep:
 	dep ensure -v

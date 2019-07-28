@@ -68,7 +68,7 @@ func newResourceRequirements(resRequirements corev1.ResourceRequirements) corev1
 
 // repmgrRegister exec repmgr register command inside a pod
 func repmgrRegister(request *PostgreSQLRequest, pod corev1.Pod, primary bool) error {
-	var role string = "standby"
+	var role = "standby"
 	if primary {
 		role = "primary"
 	}
@@ -77,9 +77,8 @@ func repmgrRegister(request *PostgreSQLRequest, pod corev1.Pod, primary bool) er
 	if err != nil {
 		log.Error(err, fmt.Sprintf("Repmgr register failed, stdout: %v, stderr: %v", stdout, stderr))
 		return err
-	} else {
-		log.Info(fmt.Sprintf("Repmgr register executed: stdout: %v, stderr: %v", stdout, stderr))
 	}
+	log.Info(fmt.Sprintf("Repmgr register executed: stdout: %v, stderr: %v", stdout, stderr))
 	return nil
 }
 
