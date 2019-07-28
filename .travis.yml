@@ -1,0 +1,30 @@
+sudo: required
+language: go
+go:
+- '1.10'
+services:
+- docker
+jobs:
+  include:
+  - stage: lint
+    script:
+    - make fmt
+    - make vet
+  - stage: build and test
+    script:
+    - make dep
+    - make test-unit
+    - make test-e2e
+#  - stage: push to docker.io
+#    script:
+#    - go get -u github.com/operator-framework/operator-sdk/commands/operator-sdk
+#    - make
+stages:
+  - lint
+  - build and test
+#  - name: push to docker.io
+#    if: branch = master AND type != pull_request
+after_success:
+- echo 'Build succeeded'
+after_failure:
+- echo 'Build failed'
