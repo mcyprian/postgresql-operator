@@ -12,6 +12,7 @@ func newContainer(name string, resourceRequirements corev1.ResourceRequirements,
 	if primary {
 		command = defaultCntCommandPrimary
 	}
+	env := newPgEnvironment()
 	return corev1.Container{
 		Image:   defaultPgImage,
 		Name:    name,
@@ -33,7 +34,7 @@ func newContainer(name string, resourceRequirements corev1.ResourceRequirements,
 		Env: []corev1.EnvVar{
 			corev1.EnvVar{
 				Name:  "POSTGRESQL_USER",
-				Value: defaultPgUser,
+				Value: env.user,
 			},
 			corev1.EnvVar{
 				Name: "POSTGRESQL_PASSWORD",
@@ -46,11 +47,11 @@ func newContainer(name string, resourceRequirements corev1.ResourceRequirements,
 			},
 			corev1.EnvVar{
 				Name:  "POSTGRESQL_DATABASE",
-				Value: defaultPgDatabase,
+				Value: env.database,
 			},
 			corev1.EnvVar{
 				Name:  "PGPASSFILE",
-				Value: "/var/lib/pgsql/.pgpass",
+				Value: pgpassFilePath,
 			},
 			corev1.EnvVar{
 				Name:  "ENABLE_REPMGR",
@@ -78,7 +79,7 @@ func newContainer(name string, resourceRequirements corev1.ResourceRequirements,
 		VolumeMounts: []corev1.VolumeMount{
 			corev1.VolumeMount{
 				Name:      name,
-				MountPath: postgreSQLDataPath,
+				MountPath: pgDataPath,
 			},
 		},
 	}

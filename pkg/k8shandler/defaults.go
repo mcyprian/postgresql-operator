@@ -15,5 +15,6 @@ const (
 	defaultMemoryLimit   = "4Gi"
 	defaultMemoryRequest = "1Gi"
 
-	postgreSQLDataPath = "/var/lib/pgsql/data/"
+	pgDataPath     = "/var/lib/pgsql/data/"
+	pgpassFilePath = "/var/lib/pgsql/.pgpass"
 )
