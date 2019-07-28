@@ -10,7 +10,7 @@ DEPLOYMENT_TARGETS= \
 OPERATOR_IMAGE=mcyprian/postgresql-operator
 OPERATOR_VERSION=v0.0.1
 
-.PHONY: all build push up down fmt
+.PHONY: all build push up down fmt test-e2e test-unit
 
 all: build push
 
@@ -30,12 +30,19 @@ down:
 	$(OC) delete -f $T ;\
 	)
 
+test-e2e:
+	@operator-sdk test local ./test/e2e --go-test-flags "-v -parallel=1"
+
 test-unit:
 	@go test -v ./pkg/... ./cmd/...
 
 fmt:
 	@gofmt -l -w cmd && \
-	gofmt -l -w pkg
+	gofmt -l -w pkg && \
+	gofmt -l -w test
+
+vet:
+	@go vet ./...
 
 dep:
 	dep ensure -v
