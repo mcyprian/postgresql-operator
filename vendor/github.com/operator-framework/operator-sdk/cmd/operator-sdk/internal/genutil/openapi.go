@@ -28,8 +28,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// OpenAPIGen generates OpenAPI validation specs for all CRD's in dirs.
-func OpenAPIGen() error {
+// OpenAPIGen generates OpenAPI validation specs for all CRD's in dirs. hf is
+// a path to a header file containing text to add to generated files.
+func OpenAPIGen(hf string) error {
 	projutil.MustInProjectRoot()
 
 	absProjectPath := projutil.MustGetwd()
@@ -56,7 +57,7 @@ func OpenAPIGen() error {
 	fqApiStr := createFQApis(apisPkg, gvMap)
 	fqApis := strings.Split(fqApiStr, ",")
 	f := func(a string) error { return openAPIGen(binDir, a, fqApis) }
-	if err = withHeaderFile(f); err != nil {
+	if err = withHeaderFile(hf, f); err != nil {
 		return err
 	}
 

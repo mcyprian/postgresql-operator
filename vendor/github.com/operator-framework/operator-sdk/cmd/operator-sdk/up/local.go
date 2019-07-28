@@ -87,7 +87,8 @@ func upLocalFunc(cmd *cobra.Command, args []string) error {
 	}
 	log.Infof("Using namespace %s.", namespace)
 
-	switch t := projutil.GetOperatorType(); t {
+	t := projutil.GetOperatorType()
+	switch t {
 	case projutil.OperatorTypeGo:
 		return upLocal()
 	case projutil.OperatorTypeAnsible:
@@ -95,7 +96,7 @@ func upLocalFunc(cmd *cobra.Command, args []string) error {
 	case projutil.OperatorTypeHelm:
 		return upLocalHelm()
 	}
-	return projutil.ErrUnknownOperatorType{}
+	return fmt.Errorf("unknown operator type '%v'", t)
 }
 
 func upLocal() error {
@@ -177,17 +178,17 @@ func setupOperatorEnv() error {
 }
 
 func buildLocal(outputBinName string) error {
-	var args []string
+	args := []string{"build", "-o", outputBinName}
 	if ldFlags != "" {
-		args = []string{"-ldflags", ldFlags}
+		args = append(args, "-ldflags", ldFlags)
 	}
-	opts := projutil.GoCmdOptions{
-		BinName:     outputBinName,
-		PackagePath: filepath.Join(projutil.CheckAndGetProjectGoPkg(), scaffold.ManagerDir),
-		Args:        args,
-		GoMod:       projutil.IsDepManagerGoMod(),
+	args = append(args, filepath.Join(scaffold.ManagerDir, scaffold.CmdFile))
+
+	bc := exec.Command("go", args...)
+	if err := projutil.ExecCmd(bc); err != nil {
+		return err
 	}
-	return projutil.GoBuild(opts)
+	return nil
 }
 
 func printVersion() {

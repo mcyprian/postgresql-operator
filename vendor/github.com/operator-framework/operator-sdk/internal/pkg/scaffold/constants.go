@@ -35,4 +35,5 @@ const (
 	DeployDir      = "deploy"
 	OLMCatalogDir  = DeployDir + filePathSep + "olm-catalog"
 	CRDsDir        = DeployDir + filePathSep + "crds"
+	VersionDir     = "version"
 )

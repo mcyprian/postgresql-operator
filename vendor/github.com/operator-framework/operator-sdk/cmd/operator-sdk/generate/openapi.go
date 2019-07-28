@@ -21,8 +21,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var headerFile string
+
 func newGenerateOpenAPICmd() *cobra.Command {
-	return &cobra.Command{
+	openAPICmd := &cobra.Command{
 		Use:   "openapi",
 		Short: "Generates OpenAPI specs for API's",
 		Long: `generate openapi generates OpenAPI validation specs in Go from tagged types
@@ -45,6 +47,10 @@ Example:
 `,
 		RunE: openAPIFunc,
 	}
+
+	openAPICmd.Flags().StringVar(&headerFile, "header-file", "", "Path to file containing headers for generated files.")
+
+	return openAPICmd
 }
 
 func openAPIFunc(cmd *cobra.Command, args []string) error {
@@ -52,5 +58,5 @@ func openAPIFunc(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("command %s doesn't accept any arguments", cmd.CommandPath())
 	}
 
-	return genutil.OpenAPIGen()
+	return genutil.OpenAPIGen(headerFile)
 }

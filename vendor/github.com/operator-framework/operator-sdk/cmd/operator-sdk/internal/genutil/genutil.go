@@ -22,12 +22,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	flags "github.com/operator-framework/operator-sdk/internal/pkg/flags"
 	"github.com/operator-framework/operator-sdk/internal/pkg/scaffold"
 	"github.com/operator-framework/operator-sdk/internal/util/projutil"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 )
 
 func buildCodegenBinaries(genDirs []string, binDir, codegenSrcDir string) error {
@@ -49,7 +47,7 @@ func runGoBuildCodegen(binDir, repoDir, genDir string) error {
 	}
 
 	// Only print binary build info if verbosity is explicitly set.
-	if viper.GetBool(flags.VerboseOpt) {
+	if projutil.IsGoVerbose() {
 		return projutil.ExecCmd(cmd)
 	}
 	cmd.Stdout = ioutil.Discard
@@ -110,14 +108,10 @@ func createFQApis(pkg string, gvs map[string][]string) string {
 	return fqb.String()
 }
 
-func withHeaderFile(f func(string) error) (err error) {
-	i, err := (&scaffold.Boilerplate{}).GetInput()
-	if err != nil {
-		return err
-	}
-	hf := i.Path
-	if _, err := os.Stat(hf); os.IsNotExist(err) {
-		if hf, err = createEmptyTmpFile(); err != nil {
+func withHeaderFile(hf string, f func(string) error) (err error) {
+	if hf == "" {
+		hf, err = createEmptyTmpFile()
+		if err != nil {
 			return err
 		}
 		defer func() {

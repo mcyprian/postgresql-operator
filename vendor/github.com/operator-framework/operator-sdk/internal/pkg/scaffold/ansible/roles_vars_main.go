@@ -34,11 +34,10 @@ func (r *RolesVarsMain) GetInput() (input.Input, error) {
 		r.Path = filepath.Join(RolesDir, r.Resource.LowerKind, RolesVarsMainFile)
 	}
 	r.TemplateBody = rolesVarsMainAnsibleTmpl
-	r.Delims = AnsibleDelims
 
 	return r.Input, nil
 }
 
 const rolesVarsMainAnsibleTmpl = `---
-# vars file for [[.Resource.LowerKind]]
+# vars file for {{.Resource.LowerKind}}
 `

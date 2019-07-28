@@ -25,8 +25,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var customAPIImport string
-
 func newAddControllerCmd() *cobra.Command {
 	controllerCmd := &cobra.Command{
 		Use:   "controller",
@@ -59,7 +57,6 @@ Example:
 	if err := controllerCmd.MarkFlagRequired("kind"); err != nil {
 		log.Fatalf("Failed to mark `kind` flag for `add controller` subcommand as required")
 	}
-	controllerCmd.Flags().StringVar(&customAPIImport, "custom-api-import", "", `External Kubernetes resource import path of the form "host.com/repo/path[=import_identifier]". import_identifier is optional`)
 
 	return controllerCmd
 }
@@ -84,10 +81,10 @@ func controllerRun(cmd *cobra.Command, args []string) error {
 		Repo:           projutil.CheckAndGetProjectGoPkg(),
 		AbsProjectPath: projutil.MustGetwd(),
 	}
-	s := &scaffold.Scaffold{}
 
+	s := &scaffold.Scaffold{}
 	err = s.Execute(cfg,
-		&scaffold.ControllerKind{Resource: r, CustomImport: customAPIImport},
+		&scaffold.ControllerKind{Resource: r},
 		&scaffold.AddController{Resource: r},
 	)
 	if err != nil {

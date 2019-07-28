@@ -24,7 +24,7 @@ import (
 const RolesReadmeFile = "README.md"
 
 type RolesReadme struct {
-	StaticInput
+	input.Input
 	Resource scaffold.Resource
 }
 

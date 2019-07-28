@@ -22,7 +22,7 @@ import (
 
 //DockerfileHybrid - Dockerfile for a hybrid operator
 type AoLogs struct {
-	StaticInput
+	input.Input
 }
 
 // GetInput - gets the input

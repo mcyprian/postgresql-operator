@@ -35,10 +35,7 @@ const RoleYamlFile = "role.yaml"
 type Role struct {
 	input.Input
 
-	IsClusterScoped  bool
-	SkipDefaultRules bool
-	SkipMetricsRules bool
-	CustomRules      []rbacv1.PolicyRule
+	IsClusterScoped bool
 }
 
 func (s *Role) GetInput() (input.Input, error) {
@@ -160,7 +157,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{.ProjectName}}
 rules:
-{{- if not .SkipDefaultRules }}
 - apiGroups:
   - ""
   resources:
@@ -174,6 +170,12 @@ rules:
   verbs:
   - "*"
 - apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+- apiGroups:
   - apps
   resources:
   - deployments
@@ -182,38 +184,6 @@ rules:
   - statefulsets
   verbs:
   - "*"
-{{- end }}
-{{- range .CustomRules }}
-- verbs:
-  {{- range .Verbs }}
-  - "{{ . }}"
-  {{- end }}
-  {{- with .APIGroups }}
-  apiGroups:
-  {{- range . }}
-  - "{{ . }}"
-  {{- end }}
-  {{- end }}
-  {{- with .Resources }}
-  resources:
-  {{- range . }}
-  - "{{ . }}"
-  {{- end }}
-  {{- end }}
-  {{- with .ResourceNames }}
-  resourceNames:
-  {{- range . }}
-  - "{{ . }}"
-  {{- end }}
-  {{- end }}
-  {{- with .NonResourceURLs }}
-  nonResourceURLs:
-  {{- range . }}
-  - "{{ . }}"
-  {{- end }}
-  {{- end }}
-{{- end }}
-{{- if not .SkipMetricsRules }}
 - apiGroups:
   - monitoring.coreos.com
   resources:
@@ -229,5 +199,4 @@ rules:
   - {{ .ProjectName }}
   verbs:
   - "update"
-{{- end }}
 `

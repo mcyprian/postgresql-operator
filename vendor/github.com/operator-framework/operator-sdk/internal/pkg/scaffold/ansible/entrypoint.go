@@ -22,7 +22,7 @@ import (
 
 // Entrypoint - entrypoint script
 type Entrypoint struct {
-	StaticInput
+	input.Input
 }
 
 func (e *Entrypoint) GetInput() (input.Input, error) {

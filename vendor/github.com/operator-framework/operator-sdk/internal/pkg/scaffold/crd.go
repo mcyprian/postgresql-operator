@@ -16,6 +16,7 @@ package scaffold
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,26 +41,12 @@ type CRD struct {
 
 	// IsOperatorGo is true when the operator is written in Go.
 	IsOperatorGo bool
-
-	once sync.Once
-	fs   afero.Fs // For testing, ex. afero.NewMemMapFs()
-}
-
-func (s *CRD) initFS(fs afero.Fs) {
-	s.once.Do(func() {
-		s.fs = fs
-	})
-}
-
-func (s *CRD) getFS() afero.Fs {
-	s.initFS(afero.NewOsFs())
-	return s.fs
 }
 
 func (s *CRD) GetInput() (input.Input, error) {
 	if s.Path == "" {
 		fileName := fmt.Sprintf("%s_%s_%s_crd.yaml",
-			s.Resource.GoImportGroup,
+			strings.ToLower(s.Resource.Group),
 			strings.ToLower(s.Resource.Version),
 			s.Resource.LowerKind)
 		s.Path = filepath.Join(CRDsDir, fileName)
@@ -89,82 +76,77 @@ func initCache() {
 	})
 }
 
-var _ CustomRenderer = &CRD{}
-
-func (s *CRD) SetFS(fs afero.Fs) { s.initFS(fs) }
+func (s *CRD) SetFS(_ afero.Fs) {}
 
 func (s *CRD) CustomRender() ([]byte, error) {
-	i, err := s.GetInput()
-	if err != nil {
-		return nil, err
+	i, _ := s.GetInput()
+	// controller-tools generates crd file names with no _crd.yaml suffix:
+	// <group>_<version>_<kind>.yaml.
+	path := strings.Replace(filepath.Base(i.Path), "_crd.yaml", ".yaml", 1)
+
+	// controller-tools' generators read and make crds for all apis in pkg/apis,
+	// so generate crds in a cached, in-memory fs to extract the data we need.
+	if s.IsOperatorGo && !cache.fileExists(path) {
+		g := &crdgenerator.Generator{
+			RootPath:          s.AbsProjectPath,
+			Domain:            strings.SplitN(s.Resource.FullGroup, ".", 2)[1],
+			OutputDir:         ".",
+			SkipMapValidation: false,
+			OutFs:             cache,
+		}
+		if err := g.ValidateAndInitFields(); err != nil {
+			return nil, err
+		}
+		if err := g.Do(); err != nil {
+			return nil, err
+		}
 	}
 
-	crd := &apiextv1beta1.CustomResourceDefinition{}
-	if s.IsOperatorGo {
-		// controller-tools generates crd file names with no _crd.yaml suffix:
-		// <group>_<version>_<kind>.yaml.
-		path := strings.Replace(filepath.Base(i.Path), "_crd.yaml", ".yaml", 1)
-
-		// controller-tools' generators read and make crds for all apis in pkg/apis,
-		// so generate crds in a cached, in-memory fs to extract the data we need.
-		if !cache.fileExists(path) {
-			g := &crdgenerator.Generator{
-				RootPath:          s.AbsProjectPath,
-				Domain:            strings.SplitN(s.Resource.FullGroup, ".", 2)[1],
-				Repo:              s.Repo,
-				OutputDir:         ".",
-				SkipMapValidation: false,
-				OutFs:             cache,
-			}
-			if err := g.ValidateAndInitFields(); err != nil {
-				return nil, err
-			}
-			if err := g.Do(); err != nil {
-				return nil, err
-			}
-		}
-
+	dstCRD := newCRDForResource(s.Resource)
+	// Get our generated crd's from the in-memory fs. If it doesn't exist in the
+	// fs, the corresponding API does not exist yet, so scaffold a fresh crd
+	// without a validation spec.
+	// If the crd exists in the fs, and a local crd exists, append the validation
+	// spec. If a local crd does not exist, use the generated crd.
+	if _, err := cache.Stat(path); err != nil && !os.IsNotExist(err) {
+		return nil, err
+	} else if err == nil {
 		b, err := afero.ReadFile(cache, path)
 		if err != nil {
-			if os.IsNotExist(err) {
-				return nil, fmt.Errorf("no API exists for Group %s Version %s Kind %s",
-					s.Resource.GoImportGroup, s.Resource.Version, s.Resource.Kind)
-			}
 			return nil, err
 		}
-		if err = yaml.Unmarshal(b, crd); err != nil {
+		dstCRD = &apiextv1beta1.CustomResourceDefinition{}
+		if err = yaml.Unmarshal(b, dstCRD); err != nil {
 			return nil, err
 		}
-		// controller-tools does not set ListKind or Singular names.
-		setCRDNamesForResource(crd, s.Resource)
-		// Remove controller-tools default label.
-		delete(crd.Labels, "controller-tools.k8s.io")
-	} else {
-		// There are currently no commands to update CRD manifests for non-Go
-		// operators, so if a CRD manifests already exists for this gvk, this
-		// scaffold is a no-op.
-		path := filepath.Join(s.AbsProjectPath, i.Path)
-		if _, err = s.getFS().Stat(path); err == nil {
-			b, err := afero.ReadFile(s.getFS(), path)
+		val := dstCRD.Spec.Validation.DeepCopy()
+
+		// If the crd exists at i.Path, append the validation spec to its crd spec.
+		if _, err := os.Stat(i.Path); err == nil {
+			cb, err := ioutil.ReadFile(i.Path)
 			if err != nil {
 				return nil, err
 			}
-			if len(b) == 0 {
-				crd = newCRDForResource(s.Resource)
-			} else {
-				if err = yaml.Unmarshal(b, crd); err != nil {
+			if len(cb) > 0 {
+				dstCRD = &apiextv1beta1.CustomResourceDefinition{}
+				if err = yaml.Unmarshal(cb, dstCRD); err != nil {
 					return nil, err
 				}
+				dstCRD.Spec.Validation = val
 			}
 		}
+		// controller-tools does not set ListKind or Singular names.
+		dstCRD.Spec.Names = getCRDNamesForResource(s.Resource)
+		// Remove controller-tools default label.
+		delete(dstCRD.Labels, "controller-tools.k8s.io")
 	}
-
-	setCRDVersions(crd)
-	return k8sutil.GetObjectBytes(crd)
+	addCRDSubresource(dstCRD)
+	addCRDVersions(dstCRD)
+	return k8sutil.GetObjectBytes(dstCRD)
 }
 
 func newCRDForResource(r *Resource) *apiextv1beta1.CustomResourceDefinition {
-	crd := &apiextv1beta1.CustomResourceDefinition{
+	return &apiextv1beta1.CustomResourceDefinition{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apiextensions.k8s.io/v1beta1",
 			Kind:       "CustomResourceDefinition",
@@ -174,6 +156,7 @@ func newCRDForResource(r *Resource) *apiextv1beta1.CustomResourceDefinition {
 		},
 		Spec: apiextv1beta1.CustomResourceDefinitionSpec{
 			Group:   r.FullGroup,
+			Names:   getCRDNamesForResource(r),
 			Scope:   apiextv1beta1.NamespaceScoped,
 			Version: r.Version,
 			Subresources: &apiextv1beta1.CustomResourceSubresources{
@@ -181,26 +164,27 @@ func newCRDForResource(r *Resource) *apiextv1beta1.CustomResourceDefinition {
 			},
 		},
 	}
-	setCRDNamesForResource(crd, r)
-	return crd
 }
 
-func setCRDNamesForResource(crd *apiextv1beta1.CustomResourceDefinition, r *Resource) {
-	if crd.Spec.Names.Kind == "" {
-		crd.Spec.Names.Kind = r.Kind
-	}
-	if crd.Spec.Names.ListKind == "" {
-		crd.Spec.Names.ListKind = r.Kind + "List"
-	}
-	if crd.Spec.Names.Plural == "" {
-		crd.Spec.Names.Plural = r.Resource
-	}
-	if crd.Spec.Names.Singular == "" {
-		crd.Spec.Names.Singular = r.LowerKind
+func getCRDNamesForResource(r *Resource) apiextv1beta1.CustomResourceDefinitionNames {
+	return apiextv1beta1.CustomResourceDefinitionNames{
+		Kind:     r.Kind,
+		ListKind: r.Kind + "List",
+		Plural:   r.Resource,
+		Singular: r.LowerKind,
 	}
 }
 
-func setCRDVersions(crd *apiextv1beta1.CustomResourceDefinition) {
+func addCRDSubresource(crd *apiextv1beta1.CustomResourceDefinition) {
+	if crd.Spec.Subresources == nil {
+		crd.Spec.Subresources = &apiextv1beta1.CustomResourceSubresources{}
+	}
+	if crd.Spec.Subresources.Status == nil {
+		crd.Spec.Subresources.Status = &apiextv1beta1.CustomResourceSubresourceStatus{}
+	}
+}
+
+func addCRDVersions(crd *apiextv1beta1.CustomResourceDefinition) {
 	// crd.Version is deprecated, use crd.Versions instead.
 	var crdVersions []apiextv1beta1.CustomResourceDefinitionVersion
 	if crd.Spec.Version != "" {

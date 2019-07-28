@@ -23,7 +23,7 @@ import (
 const MoleculeTestLocalMoleculeFile = "molecule.yml"
 
 type MoleculeTestLocalMolecule struct {
-	StaticInput
+	input.Input
 }
 
 // GetInput - gets the input

@@ -60,10 +60,6 @@ type Input struct {
 
 	// ProjectName is the operator's name, ex. app-operator
 	ProjectName string
-
-	// Delims is a slice of two strings representing the left and right delimiter
-	// defaults to {{ }}
-	Delims [2]string
 }
 
 // Repo allows a repo to be set on an object

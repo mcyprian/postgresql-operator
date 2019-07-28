@@ -24,7 +24,7 @@ import (
 )
 
 func newGenerateK8SCmd() *cobra.Command {
-	return &cobra.Command{
+	k8sCmd := &cobra.Command{
 		Use:   "k8s",
 		Short: "Generates Kubernetes code for custom resource",
 		Long: `k8s generator generates code for custom resources given the API
@@ -41,6 +41,10 @@ Example:
 `,
 		RunE: k8sFunc,
 	}
+
+	k8sCmd.Flags().StringVar(&headerFile, "header-file", "", "Path to file containing headers for generated files.")
+
+	return k8sCmd
 }
 
 func k8sFunc(cmd *cobra.Command, args []string) error {
@@ -53,5 +57,5 @@ func k8sFunc(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	return genutil.K8sCodegen()
+	return genutil.K8sCodegen(headerFile)
 }

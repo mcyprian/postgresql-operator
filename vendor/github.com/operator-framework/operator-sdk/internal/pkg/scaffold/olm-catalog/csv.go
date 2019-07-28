@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -167,7 +166,7 @@ func getCSVFromFSIfExists(fs afero.Fs, path string) (*olmapiv1alpha1.ClusterServ
 
 	csv := &olmapiv1alpha1.ClusterServiceVersion{}
 	if err := yaml.Unmarshal(csvBytes, csv); err != nil {
-		return nil, false, fmt.Errorf("%s: %v", path, err)
+		return nil, false, err
 	}
 
 	return csv, true, nil
@@ -370,11 +369,11 @@ func (s *CSV) updateCSVFromManifestFiles(cfg *CSVConfig, csv *olmapiv1alpha1.Clu
 			yamlSpec := scanner.Bytes()
 			kind, err := getKindfromYAML(yamlSpec)
 			if err != nil {
-				return fmt.Errorf("%s: %v", f, err)
+				return err
 			}
 			found, err := store.AddToUpdater(yamlSpec, kind)
 			if err != nil {
-				return fmt.Errorf("%s: %v", f, err)
+				return err
 			}
 			if !found {
 				if _, ok := otherSpecs[kind]; !ok {

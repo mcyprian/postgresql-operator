@@ -27,10 +27,8 @@ import (
 	"github.com/operator-framework/operator-sdk/internal/pkg/scaffold/input"
 	"github.com/operator-framework/operator-sdk/internal/util/projutil"
 
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 func NewCmd() *cobra.Command {
@@ -54,10 +52,9 @@ generates a skeletal app-operator application in $GOPATH/src/github.com/example.
 	newCmd.Flags().StringVar(&apiVersion, "api-version", "", "Kubernetes apiVersion and has a format of $GROUP_NAME/$VERSION (e.g app.example.com/v1alpha1) - used with \"ansible\" or \"helm\" types")
 	newCmd.Flags().StringVar(&kind, "kind", "", "Kubernetes CustomResourceDefintion kind. (e.g AppService) - used with \"ansible\" or \"helm\" types")
 	newCmd.Flags().StringVar(&operatorType, "type", "go", "Type of operator to initialize (choices: \"go\", \"ansible\" or \"helm\")")
-	newCmd.Flags().StringVar(&depManager, "dep-manager", "modules", `Dependency manager the new project will use (choices: "dep", "modules")`)
 	newCmd.Flags().BoolVar(&skipGit, "skip-git-init", false, "Do not init the directory as a git repository")
-	newCmd.Flags().StringVar(&headerFile, "header-file", "", "Path to file containing headers for generated Go files. Copied to hack/boilerplate.go.txt")
 	newCmd.Flags().BoolVar(&generatePlaybook, "generate-playbook", false, "Generate a playbook skeleton. (Only used for --type ansible)")
+	newCmd.Flags().BoolVar(&isClusterScoped, "cluster-scoped", false, "Generate cluster-scoped resources instead of namespace-scoped")
 
 	newCmd.Flags().StringVar(&helmChartRef, "helm-chart", "", "Initialize helm operator with existing helm chart (<URL>, <repo>/<name>, or local path)")
 	newCmd.Flags().StringVar(&helmChartVersion, "helm-chart-version", "", "Specific version of the helm chart (default is latest version)")
@@ -71,14 +68,18 @@ var (
 	kind             string
 	operatorType     string
 	projectName      string
-	depManager       string
-	headerFile       string
 	skipGit          bool
 	generatePlaybook bool
+	isClusterScoped  bool
 
 	helmChartRef     string
 	helmChartVersion string
 	helmChartRepo    string
+)
+
+const (
+	dep       = "dep"
+	ensureCmd = "ensure"
 )
 
 func newFunc(cmd *cobra.Command, args []string) error {
@@ -94,10 +95,10 @@ func newFunc(cmd *cobra.Command, args []string) error {
 
 	switch operatorType {
 	case projutil.OperatorTypeGo:
-		if err := doGoScaffold(); err != nil {
+		if err := doScaffold(); err != nil {
 			return err
 		}
-		if err := getDeps(); err != nil {
+		if err := pullDep(); err != nil {
 			return err
 		}
 	case projutil.OperatorTypeAnsible:
@@ -144,54 +145,28 @@ func mustBeNewProject() {
 	}
 }
 
-func doGoScaffold() error {
+func doScaffold() error {
 	cfg := &input.Config{
 		Repo:           filepath.Join(projutil.CheckAndGetProjectGoPkg(), projectName),
 		AbsProjectPath: filepath.Join(projutil.MustGetwd(), projectName),
 		ProjectName:    projectName,
 	}
+
 	s := &scaffold.Scaffold{}
-
-	if headerFile != "" {
-		err := s.Execute(cfg, &scaffold.Boilerplate{BoilerplateSrcPath: headerFile})
-		if err != nil {
-			return fmt.Errorf("boilerplate scaffold failed: (%v)", err)
-		}
-		s.BoilerplatePath = headerFile
-	}
-
-	var err error
-	switch m := projutil.DepManagerType(depManager); m {
-	case projutil.DepManagerDep:
-		err = s.Execute(cfg, &scaffold.GopkgToml{})
-	case projutil.DepManagerGoMod:
-		if goModOn, merr := projutil.GoModOn(); merr != nil {
-			return merr
-		} else if !goModOn {
-			log.Fatalf(`Dependency manager "%s" has been selected but go modules are not active. `+
-				`Activate modules then run "operator-sdk new %s".`, m, projectName)
-		}
-		err = s.Execute(cfg, &scaffold.GoMod{}, &scaffold.Tools{})
-	default:
-		err = projutil.ErrNoDepManager
-	}
-	if err != nil {
-		return fmt.Errorf("dependency manager file scaffold failed: (%v)", err)
-	}
-
-	err = s.Execute(cfg,
+	err := s.Execute(cfg,
 		&scaffold.Cmd{},
 		&scaffold.Dockerfile{},
 		&scaffold.Entrypoint{},
 		&scaffold.UserSetup{},
 		&scaffold.ServiceAccount{},
-		&scaffold.Role{},
-		&scaffold.RoleBinding{},
-		&scaffold.Operator{},
+		&scaffold.Role{IsClusterScoped: isClusterScoped},
+		&scaffold.RoleBinding{IsClusterScoped: isClusterScoped},
+		&scaffold.Operator{IsClusterScoped: isClusterScoped},
 		&scaffold.Apis{},
 		&scaffold.Controller{},
 		&scaffold.Version{},
 		&scaffold.Gitignore{},
+		&scaffold.GopkgToml{},
 	)
 	if err != nil {
 		return fmt.Errorf("new Go scaffold failed: (%v)", err)
@@ -216,8 +191,8 @@ func doAnsibleScaffold() error {
 	s := &scaffold.Scaffold{}
 	err = s.Execute(cfg,
 		&scaffold.ServiceAccount{},
-		&scaffold.Role{},
-		&scaffold.RoleBinding{},
+		&scaffold.Role{IsClusterScoped: isClusterScoped},
+		&scaffold.RoleBinding{IsClusterScoped: isClusterScoped},
 		&scaffold.CRD{Resource: resource},
 		&scaffold.CR{Resource: resource},
 		&ansible.BuildDockerfile{GeneratePlaybook: generatePlaybook},
@@ -245,7 +220,7 @@ func doAnsibleScaffold() error {
 			GeneratePlaybook: generatePlaybook,
 			Resource:         *resource,
 		},
-		&ansible.DeployOperator{},
+		&ansible.DeployOperator{IsClusterScoped: isClusterScoped},
 		&ansible.Travis{},
 		&ansible.MoleculeTestLocalMolecule{},
 		&ansible.MoleculeTestLocalPrepare{Resource: *resource},
@@ -305,15 +280,6 @@ func doHelmScaffold() error {
 	valuesPath := filepath.Join("<project_dir>", helm.HelmChartsDir, chart.GetMetadata().GetName(), "values.yaml")
 	crSpec := fmt.Sprintf("# Default values copied from %s\n\n%s", valuesPath, chart.GetValues().GetRaw())
 
-	k8sCfg, err := config.GetConfig()
-	if err != nil {
-		return fmt.Errorf("failed to get kubernetes config: %s", err)
-	}
-	roleScaffold, err := helm.CreateRoleScaffold(k8sCfg, chart)
-	if err != nil {
-		return fmt.Errorf("failed to generate role scaffold: %s", err)
-	}
-
 	s := &scaffold.Scaffold{}
 	err = s.Execute(cfg,
 		&helm.Dockerfile{},
@@ -322,9 +288,9 @@ func doHelmScaffold() error {
 			ChartName: chart.GetMetadata().GetName(),
 		},
 		&scaffold.ServiceAccount{},
-		roleScaffold,
-		&scaffold.RoleBinding{IsClusterScoped: roleScaffold.IsClusterScoped},
-		&helm.Operator{},
+		&scaffold.Role{IsClusterScoped: isClusterScoped},
+		&scaffold.RoleBinding{IsClusterScoped: isClusterScoped},
+		&helm.Operator{IsClusterScoped: isClusterScoped},
 		&scaffold.CRD{Resource: resource},
 		&scaffold.CR{
 			Resource: resource,
@@ -343,7 +309,7 @@ func doHelmScaffold() error {
 
 func verifyFlags() error {
 	if operatorType != projutil.OperatorTypeGo && operatorType != projutil.OperatorTypeAnsible && operatorType != projutil.OperatorTypeHelm {
-		return errors.Wrap(projutil.ErrUnknownOperatorType{Type: operatorType}, "value of --type can only be `go`, `ansible`, or `helm`")
+		return fmt.Errorf("value of --type can only be `go`, `ansible`, or `helm`")
 	}
 	if operatorType != projutil.OperatorTypeAnsible && generatePlaybook {
 		return fmt.Errorf("value of --generate-playbook can only be used with --type `ansible`")
@@ -391,22 +357,16 @@ func execProjCmd(cmd string, args ...string) error {
 	return projutil.ExecCmd(dc)
 }
 
-func getDeps() error {
-	switch m := projutil.DepManagerType(depManager); m {
-	case projutil.DepManagerDep:
-		log.Info("Running dep ensure ...")
-		if err := execProjCmd("dep", "ensure", "-v"); err != nil {
-			return err
-		}
-	case projutil.DepManagerGoMod:
-		log.Info("Running go mod ...")
-		if err := execProjCmd("go", "mod", "vendor", "-v"); err != nil {
-			return err
-		}
-	default:
-		return projutil.ErrInvalidDepManager(depManager)
+func pullDep() error {
+	_, err := exec.LookPath(dep)
+	if err != nil {
+		return fmt.Errorf("looking for dep in $PATH: (%v)", err)
 	}
-	log.Info("Done getting dependencies")
+	log.Info("Run dep ensure ...")
+	if err := execProjCmd(dep, ensureCmd, "-v"); err != nil {
+		return err
+	}
+	log.Info("Run dep ensure done")
 	return nil
 }
 
