@@ -1,8 +1,6 @@
 package k8shandler
 
 import (
-	"fmt"
-
 	"github.com/sethvargo/go-password/password"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -64,22 +62,6 @@ func newResourceRequirements(resRequirements corev1.ResourceRequirements) corev1
 			corev1.ResourceMemory: *requestMem,
 		},
 	}
-}
-
-// repmgrRegister exec repmgr register command inside a pod
-func repmgrRegister(request *PostgreSQLRequest, pod corev1.Pod, primary bool) error {
-	var role = "standby"
-	if primary {
-		role = "primary"
-	}
-	execCommand := []string{"shell-entrypoint", "repmgr-register", role}
-	stdout, stderr, err := ExecToPodThroughAPI(request.restConfig, request.clientset, execCommand, pod.Spec.Containers[0].Name, pod.Name, request.cluster.Namespace, nil)
-	if err != nil {
-		log.Error(err, fmt.Sprintf("Repmgr register failed, stdout: %v, stderr: %v", stdout, stderr))
-		return err
-	}
-	log.Info(fmt.Sprintf("Repmgr register executed: stdout: %v, stderr: %v", stdout, stderr))
-	return nil
 }
 
 // generatePassword generates high-entropy random password, 32 characters long, 5 digits, 5 symbols

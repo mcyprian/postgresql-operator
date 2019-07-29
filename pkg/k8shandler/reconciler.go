@@ -3,33 +3,19 @@ package k8shandler
 import (
 	postgresqlv1 "github.com/mcyprian/postgresql-operator/pkg/apis/postgresql/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // PostgreSQLRequest encapsulates variables needed for request handling
 type PostgreSQLRequest struct {
-	client     client.Client
-	cluster    *postgresqlv1.PostgreSQL
-	scheme     *runtime.Scheme
-	restConfig *rest.Config
-	clientset  *kubernetes.Clientset
+	client  client.Client
+	cluster *postgresqlv1.PostgreSQL
+	scheme  *runtime.Scheme
 }
 
 // NewPostgreSQLRequest constructs a PostgreSQLRequest
 func NewPostgreSQLRequest(client client.Client, cluster *postgresqlv1.PostgreSQL, scheme *runtime.Scheme) *PostgreSQLRequest {
-	var clientset *kubernetes.Clientset
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		log.Error(err, "Failed to create rest config")
-	} else {
-		clientset, err = kubernetes.NewForConfig(config)
-		if err != nil {
-			log.Error(err, "Failed to create clientset")
-		}
-	}
-	return &PostgreSQLRequest{client: client, cluster: cluster, scheme: scheme, restConfig: config, clientset: clientset}
+	return &PostgreSQLRequest{client: client, cluster: cluster, scheme: scheme}
 }
 
 // Reconcile creates or updates all the resources managed by the operator

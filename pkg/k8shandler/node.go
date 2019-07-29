@@ -12,7 +12,6 @@ type Node interface {
 	delete(request *PostgreSQLRequest) error
 	status() postgresqlv1.PostgreSQLNodeStatus
 	dbClient() *database
-	register(request *PostgreSQLRequest) error
 	isRegistered(request *PostgreSQLRequest) (bool, error)
 	isReady() bool
 }

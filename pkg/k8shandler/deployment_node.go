@@ -132,16 +132,3 @@ func (node *deploymentNode) isRegistered(request *PostgreSQLRequest) (bool, erro
 	}
 	return result, nil
 }
-
-func (node *deploymentNode) register(request *PostgreSQLRequest) error {
-	var primary = false
-	role, _ := node.self.ObjectMeta.Labels["node-role"]
-	if role == "primary" {
-		primary = true
-	}
-	pod, err := node.getPod(request)
-	if err != nil {
-		return err
-	}
-	return repmgrRegister(request, pod, primary)
-}
