@@ -35,7 +35,7 @@ func newResourceRequirements(resRequirements corev1.ResourceRequirements) corev1
 		requestMem = resRequirements.Requests.Memory()
 	}
 	if resRequirements.Limits.Memory().IsZero() {
-		lMem, _ := resource.ParseQuantity(defaultMemoryRequest)
+		lMem, _ := resource.ParseQuantity(defaultMemoryLimit)
 		limitMem = &lMem
 	} else {
 		limitMem = resRequirements.Limits.Memory()
@@ -48,7 +48,7 @@ func newResourceRequirements(resRequirements corev1.ResourceRequirements) corev1
 		requestCPU = resRequirements.Requests.Cpu()
 	}
 	if resRequirements.Limits.Cpu().IsZero() {
-		lCPU, _ := resource.ParseQuantity(defaultCPURequest)
+		lCPU, _ := resource.ParseQuantity(defaultCPULimit)
 		limitCPU = &lCPU
 	} else {
 		limitCPU = resRequirements.Limits.Cpu()
