@@ -8,9 +8,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	client "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type deploymentNode struct {
@@ -107,18 +105,6 @@ func (node *deploymentNode) status() postgresqlv1.PostgreSQLNodeStatus {
 
 func (node *deploymentNode) dbClient() *database {
 	return node.db
-}
-
-// getPod returns pod which was created by the node
-func (node *deploymentNode) getPod(request *PostgreSQLRequest) (corev1.Pod, error) {
-	podList := corev1.PodList{}
-	labelSelector := labels.SelectorFromSet(newLabels(request.cluster.Name, node.name(), false))
-	listOps := &client.ListOptions{Namespace: request.cluster.Namespace, LabelSelector: labelSelector}
-	err := request.client.List(context.TODO(), listOps, &podList)
-	if err != nil || len(podList.Items) < 1 {
-		return corev1.Pod{}, fmt.Errorf("Failed to get pods for node %v: %v", node.name(), err)
-	}
-	return podList.Items[0], nil
 }
 
 func (node *deploymentNode) isReady() bool {
