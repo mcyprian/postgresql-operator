@@ -22,9 +22,19 @@ func newContainer(name string, resourceRequirements corev1.ResourceRequirements,
 			Name:          "postgresql",
 		}},
 		ReadinessProbe: &corev1.Probe{
-			TimeoutSeconds:      30,
+			TimeoutSeconds:      10,
 			InitialDelaySeconds: 10,
 			PeriodSeconds:       5,
+			Handler: corev1.Handler{
+				Exec: &corev1.ExecAction{
+					Command: []string{defaultHealthCheckCommand},
+				},
+			},
+		},
+		LivenessProbe: &corev1.Probe{
+			TimeoutSeconds:      10,
+			InitialDelaySeconds: 60,
+			PeriodSeconds:       10,
 			Handler: corev1.Handler{
 				Exec: &corev1.ExecAction{
 					Command: []string{defaultHealthCheckCommand},
