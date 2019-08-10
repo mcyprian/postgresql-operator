@@ -13,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -131,7 +132,49 @@ func postgreSQLClusterCreateTest(t *testing.T, f *framework.Framework, ctx *fram
 		return fmt.Errorf("Waiting for deployment standby-node timed out: %v", err)
 	}
 	t.Log("Initial deployment created.")
+	if err = retryExecution(t, f, namespace, examplePostgreSQL, getStatus, 5, time.Second*5); err != nil {
+		return err
+	}
 
 	t.Log("Success")
+	return nil
+}
+
+type getStatusFunc func(f *framework.Framework, namespace string, examplePostgreSQL *postgresqlv1.PostgreSQL) error
+
+func retryExecution(t *testing.T, f *framework.Framework, namespace string, examplePostgreSQL *postgresqlv1.PostgreSQL, fce getStatusFunc, retries int, timeout time.Duration) error {
+	attempt := -1
+	for {
+		attempt++
+		t.Log(fmt.Sprintf("getStatus execution, attempt number %v", attempt))
+		if attempt > 0 {
+			time.Sleep(timeout)
+		}
+		if err := fce(f, namespace, examplePostgreSQL); err != nil {
+			if attempt >= retries {
+				return err
+			}
+		} else {
+			return nil
+		}
+	}
+}
+
+func getStatus(f *framework.Framework, namespace string, examplePostgreSQL *postgresqlv1.PostgreSQL) error {
+	exampleName := types.NamespacedName{Name: postgreSQLCRName, Namespace: namespace}
+	if err := f.Client.Get(goctx.TODO(), exampleName, examplePostgreSQL); err != nil {
+		return fmt.Errorf("Failed to get examplePostgreSQL: %v", err)
+	}
+	for name, status := range examplePostgreSQL.Status.Nodes {
+		if name == "primary-node" {
+			if status.Role != "primary" || status.Priority != 100 {
+				return fmt.Errorf("Wrong node role or status, expected (%v, %v), got: (%v, %v)", "primary", 100, status.Role, status.Priority)
+			}
+		} else {
+			if status.Role != "standby" || status.Priority != 0 {
+				return fmt.Errorf("Wrong node role or status, expected (%v, %v), got: (%v, %v)", "primary", 100, status.Role, status.Priority)
+			}
+		}
+	}
 	return nil
 }
