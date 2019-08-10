@@ -3,7 +3,6 @@ package k8shandler
 import (
 	"context"
 	"fmt"
-	"os"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -13,7 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func newSecret(request *PostgreSQLRequest, name string, repmgrPassword string, userPassword string) *corev1.Secret {
+func newSecret(request *PostgreSQLRequest, name string, passwords *pgPasswords) *corev1.Secret {
 	secret := &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: corev1.SchemeGroupVersion.String(),
@@ -24,8 +23,8 @@ func newSecret(request *PostgreSQLRequest, name string, repmgrPassword string, u
 			Namespace: request.cluster.Namespace,
 		},
 		StringData: map[string]string{
-			"database-password": userPassword,
-			"repmgr-password":   repmgrPassword,
+			"database-password": passwords.database,
+			"repmgr-password":   passwords.repmgr,
 		},
 	}
 	// Set PostgreSQL instance as the owner and controller
@@ -35,28 +34,17 @@ func newSecret(request *PostgreSQLRequest, name string, repmgrPassword string, u
 
 // CreateOrUpdateSecret creates a new Secret if doesn't exists and ensures all its
 // attributes has desired values
-func CreateOrUpdateSecret(request *PostgreSQLRequest) error {
-	repmgrPassword, err := generatePassword()
-	if err != nil {
-		return fmt.Errorf("Failed to generate password for repmgr user: %v", err)
-	}
-	userPassword := os.Getenv("POSTGRESQL_PASSWORD")
-	if userPassword == "" {
-		userPassword, err = generatePassword()
-		if err != nil {
-			return fmt.Errorf("Failed to generate password for database user: %v", err)
-		}
-	}
-	secret := newSecret(request, "postgresql", repmgrPassword, userPassword)
+func CreateOrUpdateSecret(request *PostgreSQLRequest, passwords *pgPasswords) error {
+	secret := newSecret(request, pgSecretName, passwords)
 
-	if err = request.client.Create(context.TODO(), secret); err != nil {
+	if err := request.client.Create(context.TODO(), secret); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("Failure constructing %v secret: %v", secret.Name, err)
 		}
 
 		current := secret.DeepCopy()
 		retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			if err = request.client.Get(context.TODO(), types.NamespacedName{Name: request.cluster.Name, Namespace: request.cluster.Namespace}, current); err != nil {
+			if err = request.client.Get(context.TODO(), types.NamespacedName{Name: pgSecretName, Namespace: request.cluster.Namespace}, current); err != nil {
 				if errors.IsNotFound(err) {
 					// the object doesn't exist -- it was likely culled
 					// recreate it on the next time through if necessary

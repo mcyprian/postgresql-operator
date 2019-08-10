@@ -24,22 +24,23 @@ type database struct {
 	cachedErr error
 }
 
-func newRepmgrDatabase(host string) *database {
+func newRepmgrDatabase(host string, password string) *database {
 	return &database{
 		info: databaseInfo{
-			host:    host,
-			port:    postgresqlPort,
-			user:    "repmgr",
-			dbname:  "repmgr",
-			sslmode: "disable",
+			host:     host,
+			port:     postgresqlPort,
+			user:     "repmgr",
+			password: password,
+			dbname:   "repmgr",
+			sslmode:  "disable",
 		},
 		cachedErr: nil,
 	}
 }
 
 func (info *databaseInfo) connectionString() string {
-	return fmt.Sprintf("host=%s port=%d user=%s dbname=%s sslmode=%s",
-		info.host, info.port, info.user, info.dbname, info.sslmode)
+	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+		info.host, info.port, info.user, info.password, info.dbname, info.sslmode)
 }
 
 func (db *database) err() error {

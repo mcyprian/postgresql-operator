@@ -50,7 +50,7 @@ func newContainer(name string, resourceRequirements corev1.ResourceRequirements,
 				Name: "POSTGRESQL_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
 					SecretKeyRef: &corev1.SecretKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{Name: "postgresql"},
+						LocalObjectReference: corev1.LocalObjectReference{Name: pgSecretName},
 						Key:                  "database-password",
 					},
 				},
@@ -71,7 +71,7 @@ func newContainer(name string, resourceRequirements corev1.ResourceRequirements,
 				Name: "REPMGR_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
 					SecretKeyRef: &corev1.SecretKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{Name: "postgresql"},
+						LocalObjectReference: corev1.LocalObjectReference{Name: pgSecretName},
 						Key:                  "repmgr-password",
 					},
 				},

@@ -1,7 +1,6 @@
 package k8shandler
 
 import (
-	"github.com/sethvargo/go-password/password"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -62,10 +61,4 @@ func newResourceRequirements(resRequirements corev1.ResourceRequirements) corev1
 			corev1.ResourceMemory: *requestMem,
 		},
 	}
-}
-
-// generatePassword generates high-entropy random password, 32 characters long, 5 digits, 5 symbols
-// including upper and lower case letters
-func generatePassword() (string, error) {
-	return password.Generate(32, 5, 5, false, false)
 }

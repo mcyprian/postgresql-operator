@@ -17,4 +17,5 @@ const (
 
 	pgDataPath     = "/var/lib/pgsql/data/"
 	pgpassFilePath = "/var/lib/pgsql/.pgpass"
+	pgSecretName   = "postgresql"
 )

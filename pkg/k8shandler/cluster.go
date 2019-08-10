@@ -1,7 +1,6 @@
 package k8shandler
 
 import (
-	"context"
 	"fmt"
 
 	postgresqlv1 "github.com/mcyprian/postgresql-operator/pkg/apis/postgresql/v1"
@@ -13,7 +12,7 @@ var primaryNode Node
 
 // CreateOrUpdateCluster iterates over all nodes in the current spec
 // and ensures cluster reflect desired state
-func CreateOrUpdateCluster(request *PostgreSQLRequest) (bool, error) {
+func CreateOrUpdateCluster(request *PostgreSQLRequest, passwords *pgPasswords) (bool, error) {
 	var err error
 	var requeue = false
 	var repmgrClusterUp = true // flag to track whether all nodes are registered to repmgr cluster
@@ -25,10 +24,11 @@ func CreateOrUpdateCluster(request *PostgreSQLRequest) (bool, error) {
 		request.cluster.Status.Nodes = make(map[string]postgresqlv1.PostgreSQLNodeStatus)
 	}
 	if primaryNode == nil {
-		if err := createPrimaryNode(request); err != nil {
+		if err := createPrimaryNode(request, passwords); err != nil {
 			return false, err
 		}
 	}
+	clusterStatus := request.cluster.Status.DeepCopy()
 	// Loop over all nodes listed in the spec
 	for name, specNode := range request.cluster.Spec.Nodes {
 		requeue, err = createOrUpdateNode(request, name, &specNode)
@@ -37,21 +37,21 @@ func CreateOrUpdateCluster(request *PostgreSQLRequest) (bool, error) {
 		}
 		node, _ := nodes[name]
 		if node.isReady() {
-			if err := updateNodeStatus(request, node); err != nil {
-				log.Error(err, "Non-critical issue")
-				//return false, err
-			}
+			clusterStatus.Nodes[node.name()] = node.status()
 		} else {
 			repmgrClusterUp = false
 		}
 	}
 	if err := deleteExtraNodes(request); err != nil {
 		log.Error(err, "Non-critical issue")
-		//	return false, err
 	}
 	log.Info(fmt.Sprintf("Nodes after update: %v", nodes))
 	if !repmgrClusterUp {
 		return true, nil
+	}
+	if err := UpdateClusterStatus(request, clusterStatus); err != nil {
+		log.Error(err, "Non-critical issue")
+		//	return false, err
 	}
 	return requeue, nil
 }
@@ -78,9 +78,9 @@ func getHighestPriority(nodeMap map[string]postgresqlv1.PostgreSQLNode) (string,
 }
 
 // createNode creates a new node, asigns id to it and adds it to the nodes map
-func createNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.PostgreSQLNode, primary bool) (Node, error) {
+func createNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.PostgreSQLNode, passwords *pgPasswords, primary bool) (Node, error) {
 	idSequence++
-	node := newDeploymentNode(request, name, specNode, idSequence, primary)
+	node := newDeploymentNode(request, name, specNode, idSequence, passwords.repmgr, primary)
 	if err := node.create(request); err != nil {
 		return nil, err
 	}
@@ -90,13 +90,13 @@ func createNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.
 
 // createPrimaryNode creates primary node if it doesn't exists
 // TODO handle lost primary reference
-func createPrimaryNode(request *PostgreSQLRequest) error {
+func createPrimaryNode(request *PostgreSQLRequest, passwords *pgPasswords) error {
 	name, specNode, err := getHighestPriority(request.cluster.Spec.Nodes)
 	log.Info(fmt.Sprintf("Creating new primary node %v", name))
 	if err != nil {
 		return fmt.Errorf("Nodes spec is empty, cannot choose master node")
 	}
-	node, err := createNode(request, name, specNode, true)
+	node, err := createNode(request, name, specNode, passwords, true)
 	if err != nil {
 		return err
 	}
@@ -117,21 +117,12 @@ func createOrUpdateNode(request *PostgreSQLRequest, name string, specNode *postg
 		}
 	} else {
 		// Create a new node
-		_, err := createNode(request, name, specNode, false)
+		_, err := createNode(request, name, specNode, passwords, false)
 		if err != nil {
 			return requeue, err
 		}
 	}
 	return requeue, nil
-}
-
-// updateNodeStatus asigns current status of the node to status map
-func updateNodeStatus(request *PostgreSQLRequest, node Node) error {
-	request.cluster.Status.Nodes[node.name()] = node.status()
-	if err := request.client.Status().Update(context.TODO(), request.cluster); err != nil {
-		return fmt.Errorf("Failed to update status of PostgreSQL node %v: %v", node.name(), err)
-	}
-	return nil
 }
 
 // deleteExtraNodes deletes all nodes which are not listed in current spec

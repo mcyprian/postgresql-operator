@@ -6,6 +6,8 @@ import (
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var passwords *pgPasswords
+
 // PostgreSQLRequest encapsulates variables needed for request handling
 type PostgreSQLRequest struct {
 	client  client.Client
@@ -20,24 +22,33 @@ func NewPostgreSQLRequest(client client.Client, cluster *postgresqlv1.PostgreSQL
 
 // Reconcile creates or updates all the resources managed by the operator
 func Reconcile(request *PostgreSQLRequest) (bool, error) {
+	var err error
 	reqLogger := log.WithValues("Request.Namespace", request.cluster.Namespace, "Request.Name", request.cluster.Name)
 	reqLogger.Info("Reconciling PostgreSQL")
 
+	if passwords == nil {
+		passwords, err = newPgPasswords()
+		if err != nil {
+			reqLogger.Error(err, "Failed to generate passwords")
+			return true, err
+		}
+	}
+
 	reqLogger.Info("Running create or update for Secret")
-	if err := CreateOrUpdateSecret(request); err != nil {
+	if err := CreateOrUpdateSecret(request, passwords); err != nil {
 		reqLogger.Error(err, "Failed to create or update Secret")
 		return true, err
 	}
 
 	reqLogger.Info("Running create or update for primary Service")
-	err := CreateOrUpdateService(request, "postgresql-primary", true)
+	err = CreateOrUpdateService(request, "postgresql-primary", true)
 	if err != nil {
 		reqLogger.Error(err, "Failed to create or update Service")
 		return true, err
 	}
 
 	reqLogger.Info("Running create or update for Cluster")
-	requeue, err := CreateOrUpdateCluster(request)
+	requeue, err := CreateOrUpdateCluster(request, passwords)
 	if err != nil {
 		reqLogger.Error(err, "Failed to create or update Cluster")
 		return true, err
