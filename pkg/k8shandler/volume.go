@@ -12,9 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func newVolume(request *PostgreSQLRequest, name string, node *postgresqlv1.PostgreSQLNode) corev1.Volume {
-
-	specVol := node.Storage
+func newVolume(request *PostgreSQLRequest, name string, specVol *postgresqlv1.PostgreSQLStorageSpec) corev1.Volume {
 	volSource := corev1.VolumeSource{}
 
 	switch {
@@ -33,7 +31,7 @@ func newVolume(request *PostgreSQLRequest, name string, node *postgresqlv1.Postg
 					corev1.ResourceStorage: *specVol.Size,
 				},
 			},
-			//			StorageClassName: specVol.StorageClassName,
+			//StorageClassName: specVol.StorageClassName,
 		}
 
 		err := createPersistentVolumeClaim(request, volSpec, claimName)

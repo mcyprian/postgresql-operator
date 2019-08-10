@@ -39,7 +39,7 @@ func newDeployment(request *PostgreSQLRequest, name string, node *postgresqlv1.P
 				Spec: corev1.PodSpec{
 					Hostname:   name,
 					Containers: []corev1.Container{newContainer(name, resourceRequirements, nodeID, primary)},
-					Volumes:    []corev1.Volume{newVolume(request, name, node)},
+					Volumes:    []corev1.Volume{newVolume(request, name, &node.Storage)},
 				},
 			},
 		},
