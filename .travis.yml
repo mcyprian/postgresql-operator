@@ -28,7 +28,7 @@ jobs:
 #    - go get -u github.com/operator-framework/operator-sdk/commands/operator-sdk
 #    - make
 stages:
-    #  - lint
+  - lint
   - build and test
 #  - name: push to docker.io
 #    if: branch = master AND type != pull_request
