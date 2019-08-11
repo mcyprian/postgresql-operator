@@ -42,7 +42,7 @@ func CreateOrUpdateCluster(request *PostgreSQLRequest, passwords *pgPasswords) (
 			repmgrClusterUp = false
 		}
 	}
-	if err := deleteExtraNodes(request); err != nil {
+	if err := deleteExtraNodes(request, clusterStatus); err != nil {
 		log.Error(err, "Non-critical issue")
 	}
 	log.Info(fmt.Sprintf("Nodes after update: %v", nodes))
@@ -51,7 +51,6 @@ func CreateOrUpdateCluster(request *PostgreSQLRequest, passwords *pgPasswords) (
 	}
 	if err := UpdateClusterStatus(request, clusterStatus); err != nil {
 		log.Error(err, "Non-critical issue")
-		//	return false, err
 	}
 	return requeue, nil
 }
@@ -126,7 +125,7 @@ func createOrUpdateNode(request *PostgreSQLRequest, name string, specNode *postg
 }
 
 // deleteExtraNodes deletes all nodes which are not listed in current spec
-func deleteExtraNodes(request *PostgreSQLRequest) error {
+func deleteExtraNodes(request *PostgreSQLRequest, clusterStatus *postgresqlv1.PostgreSQLStatus) error {
 	for name, deployedNode := range nodes {
 		_, ok := request.cluster.Spec.Nodes[name]
 		if !ok {
@@ -135,6 +134,7 @@ func deleteExtraNodes(request *PostgreSQLRequest) error {
 				return err
 			}
 			delete(nodes, name)
+			delete(clusterStatus.Nodes, name)
 		}
 	}
 	return nil

@@ -62,12 +62,12 @@ func PostgreSQLCluster(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = postgreSQLClusterCreateTest(t, f, ctx); err != nil {
+	if err = postgreSQLClusterScalingTest(t, f, ctx); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func postgreSQLClusterCreateTest(t *testing.T, f *framework.Framework, ctx *framework.TestCtx) error {
+func postgreSQLClusterScalingTest(t *testing.T, f *framework.Framework, ctx *framework.TestCtx) error {
 	namespace, err := ctx.GetNamespace()
 	if err != nil {
 		return fmt.Errorf("Couldn't get namespace: %v", err)
@@ -131,10 +131,16 @@ func postgreSQLClusterCreateTest(t *testing.T, f *framework.Framework, ctx *fram
 	if err != nil {
 		return fmt.Errorf("Waiting for deployment standby-node timed out: %v", err)
 	}
-	t.Log("Initial deployment created.")
-	if err = retryExecution(t, f, namespace, examplePostgreSQL, getStatus, 5, time.Second*5); err != nil {
+	if err = retryExecution(t, f, namespace, examplePostgreSQL, getStatusDouble, 7, time.Second*10); err != nil {
 		return err
 	}
+	t.Log("Initial deployment created.")
+	delete(examplePostgreSQL.Spec.Nodes, "standby-node")
+	f.Client.Update(goctx.TODO(), examplePostgreSQL)
+	if err = retryExecution(t, f, namespace, examplePostgreSQL, getStatusSingle, 10, time.Second*10); err != nil {
+		return err
+	}
+	t.Log("Downscale success.")
 
 	t.Log("Success")
 	return nil
@@ -160,7 +166,7 @@ func retryExecution(t *testing.T, f *framework.Framework, namespace string, exam
 	}
 }
 
-func getStatus(f *framework.Framework, namespace string, examplePostgreSQL *postgresqlv1.PostgreSQL) error {
+func getStatusDouble(f *framework.Framework, namespace string, examplePostgreSQL *postgresqlv1.PostgreSQL) error {
 	exampleName := types.NamespacedName{Name: postgreSQLCRName, Namespace: namespace}
 	if err := f.Client.Get(goctx.TODO(), exampleName, examplePostgreSQL); err != nil {
 		return fmt.Errorf("Failed to get examplePostgreSQL: %v", err)
@@ -174,6 +180,23 @@ func getStatus(f *framework.Framework, namespace string, examplePostgreSQL *post
 			if status.Role != "standby" || status.Priority != 0 {
 				return fmt.Errorf("Wrong node role or status, expected (%v, %v), got: (%v, %v)", "primary", 100, status.Role, status.Priority)
 			}
+		}
+	}
+	return nil
+}
+
+func getStatusSingle(f *framework.Framework, namespace string, examplePostgreSQL *postgresqlv1.PostgreSQL) error {
+	exampleName := types.NamespacedName{Name: postgreSQLCRName, Namespace: namespace}
+	if err := f.Client.Get(goctx.TODO(), exampleName, examplePostgreSQL); err != nil {
+		return fmt.Errorf("Failed to get examplePostgreSQL: %v", err)
+	}
+	for name, status := range examplePostgreSQL.Status.Nodes {
+		if name == "primary-node" {
+			if status.Role != "primary" || status.Priority != 100 {
+				return fmt.Errorf("Wrong node role or status, expected (%v, %v), got: (%v, %v)", "primary", 100, status.Role, status.Priority)
+			}
+		} else {
+			return fmt.Errorf("Wrong node name %v, only primary-node should be present in the cluster", name)
 		}
 	}
 	return nil
