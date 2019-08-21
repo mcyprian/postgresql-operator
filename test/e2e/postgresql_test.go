@@ -135,12 +135,20 @@ func postgreSQLClusterScalingTest(t *testing.T, f *framework.Framework, ctx *fra
 		return err
 	}
 	t.Log("Initial deployment created.")
+
 	delete(examplePostgreSQL.Spec.Nodes, "standby-node")
 	f.Client.Update(goctx.TODO(), examplePostgreSQL)
-	if err = retryExecution(t, f, namespace, examplePostgreSQL, getStatusSingle, 10, time.Second*10); err != nil {
+	if err = retryExecution(t, f, namespace, examplePostgreSQL, getStatusSingle, 10, time.Second*15); err != nil {
 		return err
 	}
 	t.Log("Downscale success.")
+
+	examplePostgreSQL.Spec.Nodes["standby-node"] = standbyNode
+	f.Client.Update(goctx.TODO(), examplePostgreSQL)
+	if err = retryExecution(t, f, namespace, examplePostgreSQL, getStatusDouble, 10, time.Second*15); err != nil {
+		return err
+	}
+	t.Log("Upscale success.")
 
 	t.Log("Success")
 	return nil
