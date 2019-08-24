@@ -61,5 +61,6 @@ ensure-imports:
 	then echo "Formatting of some files differs from goimport's"; false; \
 	fi
 
-dep:
-	dep ensure -v
+mod:
+	@go mod tidy && \
+	go mod verify
