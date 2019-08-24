@@ -31,8 +31,7 @@ func TestPostgreSQL(t *testing.T) {
 			APIVersion: postgresqlv1.SchemeGroupVersion.String(),
 		},
 	}
-	err := framework.AddToFrameworkScheme(postgresqlv1.SchemeBuilder.AddToScheme, postgreSQLList)
-	if err != nil {
+	if err := framework.AddToFrameworkScheme(postgresqlv1.SchemeBuilder.AddToScheme, postgreSQLList); err != nil {
 		t.Fatalf("Failed to add custom resource scheme to framework: %v", err)
 	}
 	// run subtests
@@ -45,8 +44,7 @@ func PostgreSQLCluster(t *testing.T) {
 	t.Parallel()
 	ctx := framework.NewTestCtx(t)
 	defer ctx.Cleanup()
-	err := ctx.InitializeClusterResources(&framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
-	if err != nil {
+	if err := ctx.InitializeClusterResources(&framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval}); err != nil {
 		t.Fatalf("Failed to initialize cluster resources: %v", err)
 	}
 	t.Log("Cluster resources initialized")
@@ -58,8 +56,7 @@ func PostgreSQLCluster(t *testing.T) {
 	// get global framework variables reference
 	f := framework.Global
 	// wait for operator to be ready
-	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, "postgresql-operator", 1, retryInterval, timeout)
-	if err != nil {
+	if err := e2eutil.WaitForDeployment(t, f.KubeClient, namespace, "postgresql-operator", 1, retryInterval, timeout); err != nil {
 		t.Fatal(err)
 	}
 	if err = postgreSQLClusterScalingTest(t, f, ctx); err != nil {
@@ -72,6 +69,7 @@ func postgreSQLClusterScalingTest(t *testing.T, f *framework.Framework, ctx *fra
 	if err != nil {
 		return fmt.Errorf("Couldn't get namespace: %v", err)
 	}
+	exampleName := types.NamespacedName{Name: postgreSQLCRName, Namespace: namespace}
 	cpuValue, _ := resource.ParseQuantity("500m")
 	memValue, _ := resource.ParseQuantity("1Gi")
 	resources := corev1.ResourceRequirements{
@@ -119,33 +117,53 @@ func postgreSQLClusterScalingTest(t *testing.T, f *framework.Framework, ctx *fra
 			},
 		},
 	}
-	err = f.Client.Create(goctx.TODO(), examplePostgreSQL, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
-	if err != nil {
+
+	if err := f.Client.Create(goctx.TODO(), examplePostgreSQL, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval}); err != nil {
 		return fmt.Errorf("Failed to create example PostgreSQL: %v", err)
 	}
-	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, "primary-node", 1, retryInterval, timeout)
-	if err != nil {
+	if err := e2eutil.WaitForDeployment(t, f.KubeClient, namespace, "primary-node", 1, retryInterval, timeout); err != nil {
 		return fmt.Errorf("Waiting for deployment primary-node timed out: %v", err)
 	}
-	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, "standby-node", 1, retryInterval, timeout)
-	if err != nil {
+	if err := e2eutil.WaitForDeployment(t, f.KubeClient, namespace, "standby-node", 1, retryInterval, timeout); err != nil {
 		return fmt.Errorf("Waiting for deployment standby-node timed out: %v", err)
 	}
-	if err = retryExecution(t, f, namespace, examplePostgreSQL, getStatusDouble, 7, time.Second*10); err != nil {
+	if err := retryExecution(t, f, namespace, getStatusDouble, 7, time.Second*10); err != nil {
 		return err
 	}
 	t.Log("Initial deployment created.")
+	standbyDeployment, err := f.KubeClient.AppsV1().Deployments(namespace).Get("standby-node", metav1.GetOptions{IncludeUninitialized: true})
+	if err != nil {
+		return fmt.Errorf("Failed to get standby-node deployment: %v", err)
+	}
+	current := &postgresqlv1.PostgreSQL{}
+	if err := f.Client.Get(goctx.TODO(), exampleName, current); err != nil {
+		return fmt.Errorf("Failed to get examplePostgreSQL: %v", err)
+	}
+	delete(current.Spec.Nodes, "standby-node")
 
-	delete(examplePostgreSQL.Spec.Nodes, "standby-node")
-	f.Client.Update(goctx.TODO(), examplePostgreSQL)
-	if err = retryExecution(t, f, namespace, examplePostgreSQL, getStatusSingle, 7, time.Second*10); err != nil {
+	if err := f.Client.Update(goctx.TODO(), current); err != nil {
+		return fmt.Errorf("Failed to update cluster: %v", err)
+	}
+	if err := e2eutil.WaitForDeletion(t, f.Client.Client, standbyDeployment, retryInterval, timeout); err != nil {
+		return fmt.Errorf("Waiting for standby-node deletion timed out: %v", err)
+	}
+	if err = retryExecution(t, f, namespace, getStatusSingle, 7, time.Second*10); err != nil {
 		return err
 	}
 	t.Log("Downscale success.")
+	if err := f.Client.Get(goctx.TODO(), exampleName, current); err != nil {
+		return fmt.Errorf("Failed to get examplePostgreSQL: %v", err)
+	}
+	current.Spec.Nodes["standby-node"] = standbyNode
 
-	examplePostgreSQL.Spec.Nodes["standby-node"] = standbyNode
-	f.Client.Update(goctx.TODO(), examplePostgreSQL)
-	if err = retryExecution(t, f, namespace, examplePostgreSQL, getStatusDouble, 7, time.Second*10); err != nil {
+	if err := f.Client.Update(goctx.TODO(), current); err != nil {
+		return fmt.Errorf("Failed to update cluster: %v", err)
+	}
+
+	if err := e2eutil.WaitForDeployment(t, f.KubeClient, namespace, "standby-node", 1, retryInterval, timeout); err != nil {
+		return fmt.Errorf("Waiting for deployment standby-node timed out: %v", err)
+	}
+	if err = retryExecution(t, f, namespace, getStatusDouble, 7, time.Second*10); err != nil {
 		return err
 	}
 	t.Log("Upscale success.")
@@ -156,7 +174,7 @@ func postgreSQLClusterScalingTest(t *testing.T, f *framework.Framework, ctx *fra
 
 type getStatusFunc func(f *framework.Framework, namespace string) error
 
-func retryExecution(t *testing.T, f *framework.Framework, namespace string, examplePostgreSQL *postgresqlv1.PostgreSQL, fce getStatusFunc, retries int, timeout time.Duration) error {
+func retryExecution(t *testing.T, f *framework.Framework, namespace string, fce getStatusFunc, retries int, timeout time.Duration) error {
 	attempt := -1
 	for {
 		attempt++
@@ -177,7 +195,6 @@ func retryExecution(t *testing.T, f *framework.Framework, namespace string, exam
 func getStatusDouble(f *framework.Framework, namespace string) error {
 	exampleName := types.NamespacedName{Name: postgreSQLCRName, Namespace: namespace}
 	current := &postgresqlv1.PostgreSQL{}
-
 	if err := f.Client.Get(goctx.TODO(), exampleName, current); err != nil {
 		return fmt.Errorf("Failed to get examplePostgreSQL: %v", err)
 	}
