@@ -57,11 +57,11 @@ func (node *deploymentNode) update(request *PostgreSQLRequest, specNode *postgre
 	}
 	// Update labels if role was changed inside repmgr
 	if node.isReady() {
-		_, priority := node.db.getNodeInfo(node.name())
+		info := node.db.getNodeInfo(node.name())
 		if err := node.db.err(); err != nil {
 			log.Error(err, fmt.Sprintf("Failed to query role of node %v", node.name()))
 		} else {
-			if priority != specNode.Priority {
+			if info.priority != specNode.Priority {
 				writableDB.updateNodePriority(node.name(), specNode.Priority)
 				if err := node.db.err(); err != nil {
 					log.Error(err, fmt.Sprintf("Failed to update priority of node %v", node.name()))
@@ -89,13 +89,13 @@ func (node *deploymentNode) delete(request *PostgreSQLRequest) error {
 }
 
 func (node *deploymentNode) status() postgresqlv1.PostgreSQLNodeStatus {
-	role, priority := node.db.getNodeInfo(node.name())
+	info := node.db.getNodeInfo(node.name())
 	status := postgresqlv1.PostgreSQLNodeStatus{
 		DeploymentName: node.self.ObjectMeta.Name,
 		ServiceName:    node.svc.ObjectMeta.Name,
 		PgVersion:      node.db.version(),
-		Role:           role,
-		Priority:       priority,
+		Role:           info.role,
+		Priority:       info.priority,
 	}
 	if err := node.db.err(); err != nil {
 		log.Error(err, "Failed to get node info")

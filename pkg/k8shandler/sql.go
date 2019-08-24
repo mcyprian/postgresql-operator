@@ -124,33 +124,36 @@ func (db *database) isRegistered(nodeName string) bool {
 	return result == 1
 }
 
+type nodeInfo struct {
+	id       int
+	role     postgresqlv1.PostgreSQLNodeRole
+	priority int
+}
+
 // getRole retrieves current node role inside repmgr cluster
-func (db *database) getNodeInfo(nodeName string) (postgresqlv1.PostgreSQLNodeRole, int) {
-	var nodeType postgresqlv1.PostgreSQLNodeRole
-	var nodePriority int
+func (db *database) getNodeInfo(nodeName string) *nodeInfo {
+	info := &nodeInfo{-1, postgresqlv1.PostgreSQLNodeRoleUnknown, -1}
 	var stmt *sql.Stmt
 
-	unknownNodePriority := -1
-
 	if db.cachedErr != nil {
-		return postgresqlv1.PostgreSQLNodeRoleUnknown, unknownNodePriority
+		return info
 	}
 
 	// if repmgr.nodes table is missing, role is unknown
 	exists := db.repmgrNodesExists()
 	if db.cachedErr != nil || !exists {
-		return postgresqlv1.PostgreSQLNodeRoleUnknown, unknownNodePriority
+		return info
 	}
 
 	// repmgr.nodes table exists, check the role
-	stmt, db.cachedErr = db.engine.Prepare("SELECT type, priority FROM repmgr.nodes WHERE node_name = $1")
+	stmt, db.cachedErr = db.engine.Prepare("SELECT node_id, type, priority FROM repmgr.nodes WHERE node_name = $1")
 	if db.cachedErr != nil {
-		return postgresqlv1.PostgreSQLNodeRoleUnknown, unknownNodePriority
+		return info
 	}
-	if db.cachedErr = stmt.QueryRow(nodeName).Scan(&nodeType, &nodePriority); db.cachedErr != nil {
-		return postgresqlv1.PostgreSQLNodeRoleUnknown, unknownNodePriority
+	if db.cachedErr = stmt.QueryRow(nodeName).Scan(&info.id, &info.role, &info.priority); db.cachedErr != nil {
+		return info
 	}
-	return nodeType, nodePriority
+	return info
 }
 
 // updateNodePriority updates failover priority of selected node
