@@ -83,10 +83,23 @@ func getHighestPriority(nodeMap map[string]postgresqlv1.PostgreSQLNode) (string,
 	return highestName, &node, nil
 }
 
-// createNode creates a new node, asigns id to it and adds it to the nodes map
+// createNode creates a new node, asigns an id to it and adds it to the nodes map
 func createNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.PostgreSQLNode, passwords *pgPasswords, primary bool) (Node, error) {
-	idSequence++
-	node := newDeploymentNode(request, name, specNode, idSequence, passwords.repmgr, primary)
+	var id = -1
+	// Try to get existing id
+	if primaryNode != nil {
+		db := primaryNode.dbClient()
+		info := db.getNodeInfo(name)
+		if err := db.err(); err == nil {
+			id = info.id
+		}
+	}
+	// increment sequence if id was not obtained successfully
+	if id == -1 {
+		idSequence++
+		id = idSequence
+	}
+	node := newDeploymentNode(request, name, specNode, id, passwords.repmgr, primary)
 	if err := node.create(request); err != nil {
 		return nil, err
 	}
