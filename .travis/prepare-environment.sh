@@ -6,8 +6,6 @@ set -o nounset
 
 sudo sysctl -w vm.max_map_count=262144
 
-go get -u github.com/golang/dep/cmd/dep
-make dep
 curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.10.0/bin/linux/amd64/kubectl
 chmod +x kubectl && sudo mv kubectl /usr/local/bin/
 curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.25.2/minikube-linux-amd64
