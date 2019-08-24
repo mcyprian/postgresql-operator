@@ -1,4 +1,4 @@
-apiVersion: postgresql.openshift.com/v1
+apiVersion: postgresql.openshift.io/v1
 kind: PostgreSQL
 metadata:
   name: postgresql-cluster
