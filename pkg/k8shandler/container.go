@@ -7,9 +7,9 @@ import (
 )
 
 // newContainer returns a container object for postgresql pod
-func newContainer(name string, resourceRequirements corev1.ResourceRequirements, nodeID int, primary bool) corev1.Container {
+func newContainer(name string, resourceRequirements corev1.ResourceRequirements, nodeID int, operation string) corev1.Container {
 	var command = defaultCntCommand
-	if primary {
+	if operation == PrimaryRegister {
 		command = defaultCntCommandPrimary
 	}
 	env := newPgEnvironment()
@@ -62,6 +62,10 @@ func newContainer(name string, resourceRequirements corev1.ResourceRequirements,
 			corev1.EnvVar{
 				Name:  "PGPASSFILE",
 				Value: pgpassFilePath,
+			},
+			corev1.EnvVar{
+				Name:  "STARTUP_OPERATION",
+				Value: operation,
 			},
 			corev1.EnvVar{
 				Name:  "ENABLE_REPMGR",

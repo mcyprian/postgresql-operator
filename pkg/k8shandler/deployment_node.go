@@ -17,9 +17,9 @@ type deploymentNode struct {
 	db   *database
 }
 
-func newDeploymentNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.PostgreSQLNode, nodeID int, repmgrPassword string, primary bool) *deploymentNode {
+func newDeploymentNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.PostgreSQLNode, nodeID int, repmgrPassword string, operation string) *deploymentNode {
 	return &deploymentNode{
-		self: newDeployment(request, name, specNode, nodeID, primary),
+		self: newDeployment(request, name, specNode, nodeID, operation),
 		svc:  newClusterIPService(request, name, false),
 		db:   newRepmgrDatabase(name, repmgrPassword),
 	}

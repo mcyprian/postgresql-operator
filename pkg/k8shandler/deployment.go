@@ -10,9 +10,9 @@ import (
 )
 
 //newDeployment returns a postgresql node Deployment object
-func newDeployment(request *PostgreSQLRequest, name string, node *postgresqlv1.PostgreSQLNode, nodeID int, primary bool) *appsv1.Deployment {
+func newDeployment(request *PostgreSQLRequest, name string, node *postgresqlv1.PostgreSQLNode, nodeID int, operation string) *appsv1.Deployment {
 	var single int32 = 1
-	labels := newLabels(request.cluster.Name, name, primary)
+	labels := newLabels(request.cluster.Name, name, operation == PrimaryRegister)
 	resourceRequirements := newResourceRequirements(node.Resources)
 	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
@@ -38,7 +38,7 @@ func newDeployment(request *PostgreSQLRequest, name string, node *postgresqlv1.P
 				},
 				Spec: corev1.PodSpec{
 					Hostname:   name,
-					Containers: []corev1.Container{newContainer(name, resourceRequirements, nodeID, primary)},
+					Containers: []corev1.Container{newContainer(name, resourceRequirements, nodeID, operation)},
 					Volumes:    []corev1.Volume{newVolume(request, name, &node.Storage)},
 				},
 			},

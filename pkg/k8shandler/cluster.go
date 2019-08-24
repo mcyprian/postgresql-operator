@@ -11,6 +11,15 @@ var idSequence int
 var nodes map[string]Node
 var primaryNode Node
 
+const (
+	// PrimaryRegister registers primary node into the cluster
+	PrimaryRegister = "primary register"
+	// StandbyRegister registers standby node into the cluster
+	StandbyRegister = "standby register"
+	// NodeRejoin rejoins the node, which was previously deleted
+	NodeRejoin = "node rejoin"
+)
+
 // CreateOrUpdateCluster iterates over all nodes in the current spec
 // and ensures cluster reflect desired state
 func CreateOrUpdateCluster(request *PostgreSQLRequest, passwords *pgPasswords) (bool, error) {
@@ -84,7 +93,7 @@ func getHighestPriority(nodeMap map[string]postgresqlv1.PostgreSQLNode) (string,
 }
 
 // createNode creates a new node, asigns an id to it and adds it to the nodes map
-func createNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.PostgreSQLNode, passwords *pgPasswords, primary bool) (Node, error) {
+func createNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.PostgreSQLNode, passwords *pgPasswords, operation string) (Node, error) {
 	var id = -1
 	// Try to get existing id
 	if primaryNode != nil {
@@ -92,6 +101,7 @@ func createNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.
 		info := db.getNodeInfo(name)
 		if err := db.err(); err == nil {
 			id = info.id
+			operation = NodeRejoin
 		}
 	}
 	// increment sequence if id was not obtained successfully
@@ -99,7 +109,7 @@ func createNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.
 		idSequence++
 		id = idSequence
 	}
-	node := newDeploymentNode(request, name, specNode, id, passwords.repmgr, primary)
+	node := newDeploymentNode(request, name, specNode, id, passwords.repmgr, operation)
 	if err := node.create(request); err != nil {
 		return nil, err
 	}
@@ -115,7 +125,7 @@ func createPrimaryNode(request *PostgreSQLRequest, passwords *pgPasswords) error
 	if err != nil {
 		return fmt.Errorf("Nodes spec is empty, cannot choose master node")
 	}
-	node, err := createNode(request, name, specNode, passwords, true)
+	node, err := createNode(request, name, specNode, passwords, PrimaryRegister)
 	if err != nil {
 		return err
 	}
@@ -136,7 +146,7 @@ func createOrUpdateNode(request *PostgreSQLRequest, name string, specNode *postg
 		}
 	} else {
 		// Create a new node
-		_, err := createNode(request, name, specNode, passwords, false)
+		_, err := createNode(request, name, specNode, passwords, StandbyRegister)
 		if err != nil {
 			return requeue, err
 		}
