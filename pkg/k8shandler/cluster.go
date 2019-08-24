@@ -2,6 +2,7 @@ package k8shandler
 
 import (
 	"fmt"
+	"sort"
 
 	postgresqlv1 "github.com/mcyprian/postgresql-operator/pkg/apis/postgresql/v1"
 )
@@ -62,8 +63,14 @@ func getHighestPriority(nodeMap map[string]postgresqlv1.PostgreSQLNode) (string,
 	if len(nodeMap) == 0 {
 		return "", nil, fmt.Errorf("Empty map, cannot choose a primary node")
 	}
+	keys := make([]string, len(nodeMap))
+	for k := range nodeMap {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
 
-	for name, node := range nodeMap {
+	for _, name := range keys {
+		node := nodeMap[name]
 		if highestName == "" {
 			highestName = name
 			highestPriority = node.Priority
