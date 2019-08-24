@@ -138,14 +138,14 @@ func postgreSQLClusterScalingTest(t *testing.T, f *framework.Framework, ctx *fra
 
 	delete(examplePostgreSQL.Spec.Nodes, "standby-node")
 	f.Client.Update(goctx.TODO(), examplePostgreSQL)
-	if err = retryExecution(t, f, namespace, examplePostgreSQL, getStatusSingle, 10, time.Second*15); err != nil {
+	if err = retryExecution(t, f, namespace, examplePostgreSQL, getStatusSingle, 7, time.Second*10); err != nil {
 		return err
 	}
 	t.Log("Downscale success.")
 
 	examplePostgreSQL.Spec.Nodes["standby-node"] = standbyNode
 	f.Client.Update(goctx.TODO(), examplePostgreSQL)
-	if err = retryExecution(t, f, namespace, examplePostgreSQL, getStatusDouble, 10, time.Second*15); err != nil {
+	if err = retryExecution(t, f, namespace, examplePostgreSQL, getStatusDouble, 7, time.Second*10); err != nil {
 		return err
 	}
 	t.Log("Upscale success.")
@@ -154,7 +154,7 @@ func postgreSQLClusterScalingTest(t *testing.T, f *framework.Framework, ctx *fra
 	return nil
 }
 
-type getStatusFunc func(f *framework.Framework, namespace string, examplePostgreSQL *postgresqlv1.PostgreSQL) error
+type getStatusFunc func(f *framework.Framework, namespace string) error
 
 func retryExecution(t *testing.T, f *framework.Framework, namespace string, examplePostgreSQL *postgresqlv1.PostgreSQL, fce getStatusFunc, retries int, timeout time.Duration) error {
 	attempt := -1
@@ -164,7 +164,7 @@ func retryExecution(t *testing.T, f *framework.Framework, namespace string, exam
 		if attempt > 0 {
 			time.Sleep(timeout)
 		}
-		if err := fce(f, namespace, examplePostgreSQL); err != nil {
+		if err := fce(f, namespace); err != nil {
 			if attempt >= retries {
 				return err
 			}
@@ -174,12 +174,14 @@ func retryExecution(t *testing.T, f *framework.Framework, namespace string, exam
 	}
 }
 
-func getStatusDouble(f *framework.Framework, namespace string, examplePostgreSQL *postgresqlv1.PostgreSQL) error {
+func getStatusDouble(f *framework.Framework, namespace string) error {
 	exampleName := types.NamespacedName{Name: postgreSQLCRName, Namespace: namespace}
-	if err := f.Client.Get(goctx.TODO(), exampleName, examplePostgreSQL); err != nil {
+	current := &postgresqlv1.PostgreSQL{}
+
+	if err := f.Client.Get(goctx.TODO(), exampleName, current); err != nil {
 		return fmt.Errorf("Failed to get examplePostgreSQL: %v", err)
 	}
-	for name, status := range examplePostgreSQL.Status.Nodes {
+	for name, status := range current.Status.Nodes {
 		if name == "primary-node" {
 			if status.Role != "primary" || status.Priority != 100 {
 				return fmt.Errorf("Wrong node role or status, expected (%v, %v), got: (%v, %v)", "primary", 100, status.Role, status.Priority)
@@ -193,12 +195,14 @@ func getStatusDouble(f *framework.Framework, namespace string, examplePostgreSQL
 	return nil
 }
 
-func getStatusSingle(f *framework.Framework, namespace string, examplePostgreSQL *postgresqlv1.PostgreSQL) error {
+func getStatusSingle(f *framework.Framework, namespace string) error {
 	exampleName := types.NamespacedName{Name: postgreSQLCRName, Namespace: namespace}
-	if err := f.Client.Get(goctx.TODO(), exampleName, examplePostgreSQL); err != nil {
+	current := &postgresqlv1.PostgreSQL{}
+
+	if err := f.Client.Get(goctx.TODO(), exampleName, current); err != nil {
 		return fmt.Errorf("Failed to get examplePostgreSQL: %v", err)
 	}
-	for name, status := range examplePostgreSQL.Status.Nodes {
+	for name, status := range current.Status.Nodes {
 		if name == "primary-node" {
 			if status.Role != "primary" || status.Priority != 100 {
 				return fmt.Errorf("Wrong node role or status, expected (%v, %v), got: (%v, %v)", "primary", 100, status.Role, status.Priority)
