@@ -25,6 +25,7 @@ const (
 func CreateOrUpdateCluster(request *PostgreSQLRequest, passwords *pgPasswords) (bool, error) {
 	var err error
 	var requeue = false
+	var status postgresqlv1.PostgreSQLNodeStatus
 	var repmgrClusterUp = true // flag to track whether all nodes are registered to repmgr cluster
 
 	if nodes == nil {
@@ -38,17 +39,39 @@ func CreateOrUpdateCluster(request *PostgreSQLRequest, passwords *pgPasswords) (
 			return false, err
 		}
 	}
+	log.Info("Running create or update for primary service")
+	err = CreateOrUpdateService(request, "postgresql-primary", primaryNode.name())
+	if err != nil {
+		log.Error(err, "Failed to create or update primary Service")
+		return true, err
+	}
 	clusterStatus := request.cluster.Status.DeepCopy()
 	// Loop over all nodes listed in the spec
 	for name, specNode := range request.cluster.Spec.Nodes {
+		node, ok := nodes[name]
+		if ok {
+			if node.isReady() {
+				status = node.status()
+				clusterStatus.Nodes[node.name()] = status
+				if status.Role == postgresqlv1.PostgreSQLNodeRolePrimary && name != primaryNode.name() {
+					log.Info(fmt.Sprintf("Failover detected: the new primary node is %v", name))
+					primaryNode = node
+					log.Info(fmt.Sprintf("Updating primary service selector to %v", primaryNode.name()))
+					err = CreateOrUpdateService(request, "postgresql-primary", primaryNode.name())
+					if err != nil {
+						log.Error(err, "Failed to create or update primary Service")
+						return true, err
+					}
+				}
+			} else {
+				repmgrClusterUp = false
+			}
+		} else {
+			repmgrClusterUp = false
+		}
 		requeue, err = createOrUpdateNode(request, name, &specNode)
 		if err != nil {
 			log.Error(err, "Non-critical issue")
-		}
-		node, _ := nodes[name]
-		if node.isReady() {
-			clusterStatus.Nodes[node.name()] = node.status()
-		} else {
 			repmgrClusterUp = false
 		}
 	}
@@ -56,12 +79,14 @@ func CreateOrUpdateCluster(request *PostgreSQLRequest, passwords *pgPasswords) (
 		log.Error(err, "Non-critical issue")
 	}
 	log.Info(fmt.Sprintf("Nodes after update: %v", nodes))
+
 	if !repmgrClusterUp {
 		return true, nil
 	}
 	if err := UpdateClusterStatus(request, clusterStatus); err != nil {
 		log.Error(err, "Non-critical issue")
 	}
+
 	return requeue, nil
 }
 
@@ -138,6 +163,7 @@ func createPrimaryNode(request *PostgreSQLRequest, passwords *pgPasswords) error
 func createOrUpdateNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.PostgreSQLNode) (bool, error) {
 	var requeue = false
 	node, ok := nodes[name]
+
 	if ok {
 		// Update existing node
 		requeue, err := node.update(request, specNode, primaryNode.dbClient())

@@ -12,7 +12,7 @@ import (
 //newDeployment returns a postgresql node Deployment object
 func newDeployment(request *PostgreSQLRequest, name string, node *postgresqlv1.PostgreSQLNode, nodeID int, operation string) *appsv1.Deployment {
 	var single int32 = 1
-	labels := newLabels(request.cluster.Name, name, operation == PrimaryRegister)
+	labels := newLabels(request.cluster.Name, name)
 	resourceRequirements := newResourceRequirements(node.Resources)
 	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{

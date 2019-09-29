@@ -13,13 +13,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func newClusterIPService(request *PostgreSQLRequest, name string, primary bool) *corev1.Service {
+func newService(request *PostgreSQLRequest, name string, selectorName string) *corev1.Service {
 	var selectorLabels map[string]string
-	if primary {
-		selectorLabels = newLabels(request.cluster.Name, "", true)
-	} else {
-		selectorLabels = newLabels(request.cluster.Name, name, false)
-	}
+	selectorLabels = newLabels(request.cluster.Name, selectorName)
 	service := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Service",
@@ -28,7 +24,7 @@ func newClusterIPService(request *PostgreSQLRequest, name string, primary bool) 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: request.cluster.Namespace,
-			Labels:    newLabels(request.cluster.Name, name, false),
+			Labels:    newLabels(request.cluster.Name, name),
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: selectorLabels,
@@ -46,15 +42,15 @@ func newClusterIPService(request *PostgreSQLRequest, name string, primary bool) 
 
 // CreateOrUpdateService creates a new Service if doesn't exists and ensures all its
 // attributes has desired values
-func CreateOrUpdateService(request *PostgreSQLRequest, name string, primary bool) error {
-	service := newClusterIPService(request, name, primary)
+func CreateOrUpdateService(request *PostgreSQLRequest, name string, selectorName string) error {
+	service := newService(request, name, selectorName)
 	if err := request.client.Create(context.TODO(), service); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("Failed to construct service %v: %v", service.Name, err)
 		}
 		current := service.DeepCopy()
 		retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			if err = request.client.Get(context.TODO(), types.NamespacedName{Name: request.cluster.Name, Namespace: request.cluster.Namespace}, current); err != nil {
+			if err = request.client.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: request.cluster.Namespace}, current); err != nil {
 				if errors.IsNotFound(err) {
 					// the object doesn't exist -- it was likely culled
 					// recreate it on the next time through if necessary
