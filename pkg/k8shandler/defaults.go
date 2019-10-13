@@ -6,8 +6,7 @@ const (
 	defaultPgImage            = "mcyprian/postgresql-10-fedora29"
 	defaultPgUser             = "user"
 	defaultPgDatabase         = "user"
-	defaultCntCommand         = "run-postgresql-slave"
-	defaultCntCommandPrimary  = "run-postgresql-master"
+	defaultCntCommand         = "run-repmgr-replica"
 	defaultHealthCheckCommand = "/usr/libexec/check-container"
 
 	defaultCPULimit      = "4000m"

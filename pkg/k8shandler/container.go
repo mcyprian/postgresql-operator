@@ -8,15 +8,11 @@ import (
 
 // newContainer returns a container object for postgresql pod
 func newContainer(name string, resourceRequirements corev1.ResourceRequirements, nodeID int, operation string) corev1.Container {
-	var command = defaultCntCommand
-	if operation == PrimaryRegister {
-		command = defaultCntCommandPrimary
-	}
 	env := newPgEnvironment()
 	return corev1.Container{
 		Image:   defaultPgImage,
 		Name:    name,
-		Command: []string{command},
+		Command: []string{defaultCntCommand},
 		Ports: []corev1.ContainerPort{{
 			ContainerPort: postgresqlPort,
 			Name:          "postgresql",
