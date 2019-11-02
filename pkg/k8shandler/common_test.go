@@ -10,31 +10,26 @@ import (
 
 func TestNewLabels(t *testing.T) {
 	table := []struct {
-		clusterName string
-		nodeName    string
-		primary     bool
-		expected    map[string]string
+		clusterName  string
+		selectorName string
+		expected     map[string]string
 	}{
 		{
 			"example-cluster",
 			"example-node",
-			false,
 			map[string]string{
 				"cluster-name": "example-cluster",
 				"node-name":    "example-node",
 			}},
 		{
 			"example-cluster",
-			"example-node",
-			true,
+			"",
 			map[string]string{
 				"cluster-name": "example-cluster",
-				"node-name":    "example-node",
-				"node-role":    "primary",
 			}},
 	}
 	for _, tt := range table {
-		actual := newLabels(tt.clusterName, tt.nodeName, tt.primary)
+		actual := newLabels(tt.clusterName, tt.selectorName)
 		eq := reflect.DeepEqual(actual, tt.expected)
 		if !eq {
 			t.Errorf("Test failed, expected: '%v', got: '%v'", tt.expected, actual)
