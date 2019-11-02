@@ -40,6 +40,12 @@ func Reconcile(request *PostgreSQLRequest) (bool, error) {
 		return true, err
 	}
 
+	reqLogger.Info("Running create or update for read-only Service")
+	if err := CreateOrUpdateService(request, "postgresql-ro", ""); err != nil {
+		reqLogger.Error(err, "Failed to create or update read-only secret")
+		return true, err
+	}
+
 	reqLogger.Info("Running create or update for Cluster")
 	requeue, err := CreateOrUpdateCluster(request, passwords)
 	if err != nil {
