@@ -25,6 +25,8 @@ func TestNewPgEnvironment(t *testing.T) {
 			pgEnvironment{user: "testuser", database: "testdb"},
 		},
 	}
+	os.Unsetenv("POSTGRESQL_USER")
+	os.Unsetenv("POSTGRESQL_DATABASE")
 	for _, tt := range table {
 		for name, value := range tt.osEnv {
 			if err := os.Setenv(name, value); err != nil {

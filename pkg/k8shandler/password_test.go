@@ -6,6 +6,7 @@ import (
 )
 
 func TestNewPgPasswords(t *testing.T) {
+	os.Unsetenv("POSTGRESQL_PASSWORD")
 	actual, _ := newPgPasswords()
 	if len(actual.repmgr) != 32 || len(actual.database) != 32 {
 		t.Errorf("Test failed, generated passwords don't have an expected length.")
