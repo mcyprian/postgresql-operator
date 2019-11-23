@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+// PostgreSQLClusterFailover test failover of two node cluster
 func PostgreSQLClusterFailover(t *testing.T) {
 	t.Parallel()
 	ctx := framework.NewTestCtx(t)
@@ -34,12 +35,12 @@ func PostgreSQLClusterFailover(t *testing.T) {
 	if err := e2eutil.WaitForDeployment(t, f.KubeClient, namespace, "postgresql-operator", 1, retryInterval, timeout); err != nil {
 		t.Fatal(err)
 	}
-	if err = PostgreSQLClusterFailoverTest(t, f, ctx); err != nil {
+	if err = postgreSQLClusterFailoverTest(t, f, ctx); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func PostgreSQLClusterFailoverTest(t *testing.T, f *framework.Framework, ctx *framework.TestCtx) error {
+func postgreSQLClusterFailoverTest(t *testing.T, f *framework.Framework, ctx *framework.TestCtx) error {
 	namespace, err := ctx.GetNamespace()
 	if err != nil {
 		return fmt.Errorf("Couldn't get namespace: %v", err)

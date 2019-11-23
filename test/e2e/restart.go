@@ -12,11 +12,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
-// PostgreSQLClusterScaling test downscaling of slave node and rejoining the cluster again
-func PostgreSQLClusterScaling(t *testing.T) {
+// PostgreSQLClusterRestart test correct recovery of the cluster after slave and master node restart
+func PostgreSQLClusterRestart(t *testing.T) {
 	t.Parallel()
 	ctx := framework.NewTestCtx(t)
 	defer ctx.Cleanup()
@@ -35,17 +34,16 @@ func PostgreSQLClusterScaling(t *testing.T) {
 	if err := e2eutil.WaitForDeployment(t, f.KubeClient, namespace, "postgresql-operator", 1, retryInterval, timeout); err != nil {
 		t.Fatal(err)
 	}
-	if err = postgreSQLClusterScalingTest(t, f, ctx); err != nil {
+	if err = postgreSQLClusterRestartTest(t, f, ctx); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func postgreSQLClusterScalingTest(t *testing.T, f *framework.Framework, ctx *framework.TestCtx) error {
+func postgreSQLClusterRestartTest(t *testing.T, f *framework.Framework, ctx *framework.TestCtx) error {
 	namespace, err := ctx.GetNamespace()
 	if err != nil {
 		return fmt.Errorf("Couldn't get namespace: %v", err)
 	}
-	exampleName := types.NamespacedName{Name: postgreSQLCRName, Namespace: namespace}
 	cpuValue, _ := resource.ParseQuantity("100m")
 	memValue, _ := resource.ParseQuantity("250M")
 	resources := corev1.ResourceRequirements{
@@ -107,42 +105,33 @@ func postgreSQLClusterScalingTest(t *testing.T, f *framework.Framework, ctx *fra
 		return err
 	}
 	t.Log("Initial deployment created.")
-	standbyDeployment, err := f.KubeClient.AppsV1().Deployments(namespace).Get("standby-node", metav1.GetOptions{IncludeUninitialized: true})
+	standbyListOpts := metav1.ListOptions{LabelSelector: "node-name=standby-node"}
+	standbyPodList, err := f.KubeClient.CoreV1().Pods(namespace).List(standbyListOpts)
 	if err != nil {
-		return fmt.Errorf("Failed to get standby-node deployment: %v", err)
+		return fmt.Errorf("Failed to get standby pod list: %v", err)
 	}
-	current := &postgresqlv1.PostgreSQL{}
-	if err := f.Client.Get(goctx.TODO(), exampleName, current); err != nil {
-		return fmt.Errorf("Failed to get examplePostgreSQL: %v", err)
-	}
-	delete(current.Spec.Nodes, "standby-node")
-
-	if err := f.Client.Update(goctx.TODO(), current); err != nil {
-		return fmt.Errorf("Failed to update cluster: %v", err)
-	}
-	if err := e2eutil.WaitForDeletion(t, f.Client.Client, standbyDeployment, retryInterval, timeout); err != nil {
-		return fmt.Errorf("Waiting for standby-node deletion timed out: %v", err)
-	}
-	if err = retryExecution(t, f, namespace, getStatusSingle, 7, time.Second*10); err != nil {
-		return err
-	}
-	t.Log("Downscale success.")
-	if err := f.Client.Get(goctx.TODO(), exampleName, current); err != nil {
-		return fmt.Errorf("Failed to get examplePostgreSQL: %v", err)
-	}
-	current.Spec.Nodes["standby-node"] = standbyNode
-
-	if err := f.Client.Update(goctx.TODO(), current); err != nil {
-		return fmt.Errorf("Failed to update cluster: %v", err)
-	}
-
+	f.KubeClient.CoreV1().Pods(namespace).Delete(standbyPodList.Items[0].Name, &metav1.DeleteOptions{})
 	if err := e2eutil.WaitForDeployment(t, f.KubeClient, namespace, "standby-node", 1, retryInterval, timeout); err != nil {
 		return fmt.Errorf("Waiting for deployment standby-node timed out: %v", err)
 	}
-	if err = retryExecution(t, f, namespace, getStatusDouble, 7, time.Second*10); err != nil {
+	if err := retryExecution(t, f, namespace, getStatusDouble, 7, time.Second*10); err != nil {
 		return err
 	}
-	t.Log("Upscale success.")
+	t.Log("Standby restart success.")
+
+	primaryListOpts := metav1.ListOptions{LabelSelector: "node-name=primary-node"}
+	primaryPodList, err := f.KubeClient.CoreV1().Pods(namespace).List(primaryListOpts)
+	if err != nil {
+		return fmt.Errorf("Failed to get primary pod list: %v", err)
+	}
+	f.KubeClient.CoreV1().Pods(namespace).Delete(primaryPodList.Items[0].Name, &metav1.DeleteOptions{})
+	if err := e2eutil.WaitForDeployment(t, f.KubeClient, namespace, "primary-node", 1, retryInterval, timeout); err != nil {
+		return fmt.Errorf("Waiting for deployment primary-node timed out: %v", err)
+	}
+	if err := retryExecution(t, f, namespace, getStatusDouble, 7, time.Second*10); err != nil {
+		return err
+	}
+	t.Log("Primary restart success.")
 
 	t.Log("Success")
 	return nil

@@ -31,5 +31,6 @@ func TestPostgreSQL(t *testing.T) {
 	t.Run("postgresql-group", func(t *testing.T) {
 		t.Run("ClusterScaling", PostgreSQLClusterScaling)
 		t.Run("ClusterFailover", PostgreSQLClusterFailover)
+		t.Run("ClusterRestart", PostgreSQLClusterRestart)
 	})
 }
