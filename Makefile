@@ -1,7 +1,6 @@
 OC=oc
 DEPLOYMENT_TARGETS= \
 	deploy/crds/postgresql_v1_postgresql_crd.yaml \
-	deploy/crds/postgresql_v1_postgresql_cr.yaml \
 	deploy/operator.yaml \
 	deploy/role_binding.yaml \
 	deploy/role.yaml \
@@ -35,7 +34,7 @@ down:
 	)
 
 test-e2e:
-	@operator-sdk test local ./test/e2e --go-test-flags "-v -parallel=1"
+	@operator-sdk test local ./test/e2e --go-test-flags "-v -parallel=1 --timeout 20m"
 
 test-unit:
 	@go test -v ./pkg/... ./cmd/...
