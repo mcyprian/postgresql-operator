@@ -8,7 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -34,34 +34,45 @@ func newSecret(request *PostgreSQLRequest, name string, passwords *pgPasswords) 
 
 // CreateOrUpdateSecret creates a new Secret if doesn't exists and ensures all its
 // attributes has desired values
-func (request *PostgreSQLRequest) CreateOrUpdateSecret(passwords *pgPasswords) error {
-	secret := newSecret(request, request.cluster.Name, passwords)
-
-	if err := request.client.Create(context.TODO(), secret); err != nil {
-		if !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("Failure constructing %v secret: %v", secret.Name, err)
+func (request *PostgreSQLRequest) CreateOrUpdateSecret() error {
+	_, err := extractSecret(request.cluster.Name, request.cluster.Namespace, request.client)
+	if errors.IsNotFound(err) {
+		log.Info(fmt.Sprintf("Generating secret for cluster %v", request.cluster.Name))
+		passwords, err := newPgPasswords()
+		if err != nil {
+			log.Error(err, "Failed to generate passwords")
+			return err
 		}
-
-		current := secret.DeepCopy()
-		retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			if err = request.client.Get(context.TODO(), types.NamespacedName{Name: request.cluster.Name, Namespace: request.cluster.Namespace}, current); err != nil {
-				if errors.IsNotFound(err) {
-					// the object doesn't exist -- it was likely culled
-					// recreate it on the next time through if necessary
-					return nil
-				}
-				return fmt.Errorf("Failed to get %v secret: %v", secret.Name, err)
+		secret := newSecret(request, request.cluster.Name, passwords)
+		if err := request.client.Create(context.TODO(), secret); err != nil {
+			if !errors.IsAlreadyExists(err) {
+				return fmt.Errorf("Failure constructing %v secret: %v", secret.Name, err)
 			}
 
-			current.StringData = secret.StringData
-			if err = request.client.Update(context.TODO(), current); err != nil {
-				return err
-			}
-			return nil
-		})
-		if retryErr != nil {
-			return retryErr
 		}
 	}
 	return nil
+}
+
+func extractSecret(secretName, namespace string, client client.Client) (map[string][]byte, error) {
+	secret := &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: corev1.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: namespace,
+		},
+	}
+
+	if err := client.Get(context.TODO(), types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace}, secret); err != nil {
+		if errors.IsNotFound(err) {
+			log.Error(err, fmt.Sprintf("Failed to find secret %v", secret.Name))
+		} else {
+			log.Error(err, fmt.Sprintf("Failed to read secret %v", secret.Name))
+		}
+		return nil, err
+	}
+	return secret.Data, nil
 }

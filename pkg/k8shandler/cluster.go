@@ -22,7 +22,7 @@ const (
 
 // CreateOrUpdateCluster iterates over all nodes in the current spec
 // and ensures cluster reflect desired state
-func (request *PostgreSQLRequest) CreateOrUpdateCluster(passwords *pgPasswords) (bool, error) {
+func (request *PostgreSQLRequest) CreateOrUpdateCluster() (bool, error) {
 	var err error
 	var requeue = false
 	var status postgresqlv1.PostgreSQLNodeStatus
@@ -35,7 +35,7 @@ func (request *PostgreSQLRequest) CreateOrUpdateCluster(passwords *pgPasswords) 
 		request.cluster.Status.Nodes = make(map[string]postgresqlv1.PostgreSQLNodeStatus)
 	}
 	if primaryNode == nil {
-		if err := createPrimaryNode(request, passwords); err != nil {
+		if err := createPrimaryNode(request); err != nil {
 			return false, err
 		}
 	}
@@ -118,7 +118,7 @@ func getHighestPriority(nodeMap map[string]postgresqlv1.PostgreSQLNode) (string,
 }
 
 // createNode creates a new node, asigns an id to it and adds it to the nodes map
-func createNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.PostgreSQLNode, passwords *pgPasswords, operation string) (Node, error) {
+func createNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.PostgreSQLNode, operation string) (Node, error) {
 	var id = -1
 	// Try to get existing id
 	if primaryNode != nil {
@@ -134,7 +134,17 @@ func createNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.
 		idSequence++
 		id = idSequence
 	}
-	node := newDeploymentNode(request, name, specNode, id, passwords.repmgr, operation)
+	secretData, err := extractSecret(request.cluster.Name, request.cluster.Namespace, request.client)
+	if err != nil {
+		log.Error(err, fmt.Sprintf("Failed to extract secret %v", request.cluster.Name))
+		return nil, err
+	}
+	repmgrPassword, ok := secretData["repmgr-password"]
+	if !ok {
+		log.Error(err, fmt.Sprintf("Repmgr password not found in secret %v", request.cluster.Name))
+		return nil, err
+	}
+	node := newDeploymentNode(request, name, specNode, id, string(repmgrPassword), operation)
 	if err := node.create(request); err != nil {
 		return nil, err
 	}
@@ -144,13 +154,13 @@ func createNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.
 
 // createPrimaryNode creates primary node if it doesn't exists
 // TODO handle lost primary reference
-func createPrimaryNode(request *PostgreSQLRequest, passwords *pgPasswords) error {
+func createPrimaryNode(request *PostgreSQLRequest) error {
 	name, specNode, err := getHighestPriority(request.cluster.Spec.Nodes)
 	log.Info(fmt.Sprintf("Creating new primary node %v", name))
 	if err != nil {
 		return fmt.Errorf("Nodes spec is empty, cannot choose master node")
 	}
-	node, err := createNode(request, name, specNode, passwords, PrimaryRegister)
+	node, err := createNode(request, name, specNode, PrimaryRegister)
 	if err != nil {
 		return err
 	}
@@ -172,7 +182,7 @@ func createOrUpdateNode(request *PostgreSQLRequest, name string, specNode *postg
 		}
 	} else {
 		// Create a new node
-		_, err := createNode(request, name, specNode, passwords, StandbyRegister)
+		_, err := createNode(request, name, specNode, StandbyRegister)
 		if err != nil {
 			return requeue, err
 		}
