@@ -34,8 +34,8 @@ func newSecret(request *PostgreSQLRequest, name string, passwords *pgPasswords) 
 
 // CreateOrUpdateSecret creates a new Secret if doesn't exists and ensures all its
 // attributes has desired values
-func CreateOrUpdateSecret(request *PostgreSQLRequest, passwords *pgPasswords) error {
-	secret := newSecret(request, pgSecretName, passwords)
+func (request *PostgreSQLRequest) CreateOrUpdateSecret(passwords *pgPasswords) error {
+	secret := newSecret(request, request.cluster.Name, passwords)
 
 	if err := request.client.Create(context.TODO(), secret); err != nil {
 		if !errors.IsAlreadyExists(err) {
@@ -44,7 +44,7 @@ func CreateOrUpdateSecret(request *PostgreSQLRequest, passwords *pgPasswords) er
 
 		current := secret.DeepCopy()
 		retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			if err = request.client.Get(context.TODO(), types.NamespacedName{Name: pgSecretName, Namespace: request.cluster.Namespace}, current); err != nil {
+			if err = request.client.Get(context.TODO(), types.NamespacedName{Name: request.cluster.Name, Namespace: request.cluster.Namespace}, current); err != nil {
 				if errors.IsNotFound(err) {
 					// the object doesn't exist -- it was likely culled
 					// recreate it on the next time through if necessary

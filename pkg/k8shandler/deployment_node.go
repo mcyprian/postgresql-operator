@@ -35,7 +35,7 @@ func (node *deploymentNode) create(request *PostgreSQLRequest) error {
 			return fmt.Errorf("Failed to create node resource %v", err)
 		}
 	}
-	if err := CreateOrUpdateService(request, node.svc.ObjectMeta.Name, node.svc.ObjectMeta.Name); err != nil {
+	if err := request.CreateOrUpdateService(node.svc.ObjectMeta.Name, node.svc.ObjectMeta.Name); err != nil {
 		return fmt.Errorf("Failed to create service resource %v", err)
 	}
 	node.db.initialize()
@@ -48,7 +48,7 @@ func (node *deploymentNode) create(request *PostgreSQLRequest) error {
 
 func (node *deploymentNode) update(request *PostgreSQLRequest, specNode *postgresqlv1.PostgreSQLNode, writableDB *database) (bool, error) {
 	// TODO update node to reflect spec
-	if err := CreateOrUpdateService(request, node.svc.ObjectMeta.Name, node.svc.ObjectMeta.Name); err != nil {
+	if err := request.CreateOrUpdateService(node.svc.ObjectMeta.Name, node.svc.ObjectMeta.Name); err != nil {
 		return false, fmt.Errorf("Failed to create service resource %v", err)
 	}
 	current := node.self.DeepCopy()

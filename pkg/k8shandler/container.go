@@ -7,7 +7,7 @@ import (
 )
 
 // newContainer returns a container object for postgresql pod
-func newContainer(name string, resourceRequirements corev1.ResourceRequirements, nodeID int, operation string) corev1.Container {
+func newContainer(name string, secretName string, resourceRequirements corev1.ResourceRequirements, nodeID int, operation string) corev1.Container {
 	env := newPgEnvironment()
 	return corev1.Container{
 		Image:   defaultPgImage,
@@ -46,7 +46,7 @@ func newContainer(name string, resourceRequirements corev1.ResourceRequirements,
 				Name: "POSTGRESQL_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
 					SecretKeyRef: &corev1.SecretKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{Name: pgSecretName},
+						LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
 						Key:                  "database-password",
 					},
 				},
@@ -71,7 +71,7 @@ func newContainer(name string, resourceRequirements corev1.ResourceRequirements,
 				Name: "REPMGR_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
 					SecretKeyRef: &corev1.SecretKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{Name: pgSecretName},
+						LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
 						Key:                  "repmgr-password",
 					},
 				},

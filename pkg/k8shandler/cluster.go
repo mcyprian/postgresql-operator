@@ -22,7 +22,7 @@ const (
 
 // CreateOrUpdateCluster iterates over all nodes in the current spec
 // and ensures cluster reflect desired state
-func CreateOrUpdateCluster(request *PostgreSQLRequest, passwords *pgPasswords) (bool, error) {
+func (request *PostgreSQLRequest) CreateOrUpdateCluster(passwords *pgPasswords) (bool, error) {
 	var err error
 	var requeue = false
 	var status postgresqlv1.PostgreSQLNodeStatus
@@ -40,7 +40,7 @@ func CreateOrUpdateCluster(request *PostgreSQLRequest, passwords *pgPasswords) (
 		}
 	}
 	log.Info("Running create or update for primary service")
-	err = CreateOrUpdateService(request, "postgresql-primary", primaryNode.name())
+	err = request.CreateOrUpdateService("postgresql-primary", primaryNode.name())
 	if err != nil {
 		log.Error(err, "Failed to create or update primary Service")
 		return true, err
@@ -57,7 +57,7 @@ func CreateOrUpdateCluster(request *PostgreSQLRequest, passwords *pgPasswords) (
 					log.Info(fmt.Sprintf("Failover detected: the new primary node is %v", name))
 					primaryNode = node
 					log.Info(fmt.Sprintf("Updating primary service selector to %v", primaryNode.name()))
-					err = CreateOrUpdateService(request, "postgresql-primary", primaryNode.name())
+					err = request.CreateOrUpdateService("postgresql-primary", primaryNode.name())
 					if err != nil {
 						log.Error(err, "Failed to create or update primary Service")
 						return true, err

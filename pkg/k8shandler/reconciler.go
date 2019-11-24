@@ -21,7 +21,7 @@ func NewPostgreSQLRequest(client client.Client, cluster *postgresqlv1.PostgreSQL
 }
 
 // Reconcile creates or updates all the resources managed by the operator
-func Reconcile(request *PostgreSQLRequest) (bool, error) {
+func (request *PostgreSQLRequest) Reconcile() (bool, error) {
 	var err error
 	reqLogger := log.WithValues("Request.Namespace", request.cluster.Namespace, "Request.Name", request.cluster.Name)
 	reqLogger.Info("Reconciling PostgreSQL")
@@ -35,19 +35,19 @@ func Reconcile(request *PostgreSQLRequest) (bool, error) {
 	}
 
 	reqLogger.Info("Running create or update for Secret")
-	if err := CreateOrUpdateSecret(request, passwords); err != nil {
+	if err := request.CreateOrUpdateSecret(passwords); err != nil {
 		reqLogger.Error(err, "Failed to create or update Secret")
 		return true, err
 	}
 
 	reqLogger.Info("Running create or update for read-only Service")
-	if err := CreateOrUpdateService(request, "postgresql-ro", ""); err != nil {
+	if err := request.CreateOrUpdateService("postgresql-ro", ""); err != nil {
 		reqLogger.Error(err, "Failed to create or update read-only secret")
 		return true, err
 	}
 
 	reqLogger.Info("Running create or update for Cluster")
-	requeue, err := CreateOrUpdateCluster(request, passwords)
+	requeue, err := request.CreateOrUpdateCluster(passwords)
 	if err != nil {
 		reqLogger.Error(err, "Failed to create or update Cluster")
 		return true, err

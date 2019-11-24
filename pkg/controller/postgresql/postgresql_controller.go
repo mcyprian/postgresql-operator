@@ -87,8 +87,8 @@ func (r *ReconcilePostgreSQL) Reconcile(request reconcile.Request) (reconcile.Re
 	if instance.Spec.ManagementState == postgresqlv1.ManagementStateUnmanaged {
 		return reconcile.Result{}, nil
 	}
-	handlerRequest := k8shandler.NewPostgreSQLRequest(r.client, instance, r.scheme)
-	requeue, err := k8shandler.Reconcile(handlerRequest)
+	postgresqlRequest := k8shandler.NewPostgreSQLRequest(r.client, instance, r.scheme)
+	requeue, err := postgresqlRequest.Reconcile()
 	if err != nil {
 		return reconcile.Result{}, err
 	}

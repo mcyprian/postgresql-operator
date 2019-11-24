@@ -42,7 +42,7 @@ func newService(request *PostgreSQLRequest, name string, selectorName string) *c
 
 // CreateOrUpdateService creates a new Service if doesn't exists and ensures all its
 // attributes has desired values
-func CreateOrUpdateService(request *PostgreSQLRequest, name string, selectorName string) error {
+func (request *PostgreSQLRequest) CreateOrUpdateService(name string, selectorName string) error {
 	service := newService(request, name, selectorName)
 	if err := request.client.Create(context.TODO(), service); err != nil {
 		if !errors.IsAlreadyExists(err) {
