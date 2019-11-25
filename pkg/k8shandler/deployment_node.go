@@ -25,6 +25,19 @@ func newDeploymentNode(request *PostgreSQLRequest, name string, specNode *postgr
 	}
 }
 
+func attachDeploymentNode(request *PostgreSQLRequest, name string, deployment *appsv1.Deployment, repmgrPassword string) *deploymentNode {
+	node := &deploymentNode{
+		self: deployment,
+		svc:  newService(request, name, name),
+		db:   newRepmgrDatabase(name, repmgrPassword),
+	}
+	node.db.initialize()
+	if err := node.db.err(); err != nil {
+		fmt.Errorf("Failed to initialize repmgr database connection %v", err)
+	}
+	return node
+}
+
 func (node *deploymentNode) name() string {
 	return node.self.ObjectMeta.Name
 }
@@ -47,15 +60,27 @@ func (node *deploymentNode) create(request *PostgreSQLRequest) error {
 }
 
 func (node *deploymentNode) update(request *PostgreSQLRequest, specNode *postgresqlv1.PostgreSQLNode, writableDB *database) (bool, error) {
-	// TODO update node to reflect spec
 	if err := request.CreateOrUpdateService(node.svc.ObjectMeta.Name, node.svc.ObjectMeta.Name); err != nil {
 		return false, fmt.Errorf("Failed to create service resource %v", err)
 	}
 	current := node.self.DeepCopy()
 	if err := request.client.Get(context.TODO(), types.NamespacedName{Name: node.name(), Namespace: request.cluster.Namespace}, current); err != nil {
-		return false, fmt.Errorf("Failed to get deployment %v: %v", node.name(), err)
+		if errors.IsNotFound(err) {
+			log.Info(fmt.Sprintf("CREATING LOST DEPLOYMENT %v", node.self.ObjectMeta.Name))
+			nodeInfo := writableDB.getNodeInfo(node.name())
+			node.self = newDeployment(request, node.name(), specNode, nodeInfo.id, NodeRejoin)
+			if err := request.client.Create(context.TODO(), node.self); err != nil {
+				return true, fmt.Errorf("Failed to create node resource %v", err)
+			}
+			return false, nil
+		} else {
+			return false, fmt.Errorf("Failed to get deployment %v: %v", node.name(), err)
+		}
 	}
-	// Update labels if role was changed inside repmgr
+	current.Spec.Template.Spec.Containers[0].Resources = newResourceRequirements(specNode.Resources)
+	current.Spec.Template.Spec.Volumes[0] = newVolume(request, node.name(), &specNode.Storage)
+	current.Spec.Template.Spec.Containers[0].Image = specNode.Image
+
 	if node.isReady() {
 		info := node.db.getNodeInfo(node.name())
 		if err := node.db.err(); err != nil {
@@ -69,7 +94,7 @@ func (node *deploymentNode) update(request *PostgreSQLRequest, specNode *postgre
 			}
 		}
 		if err := request.client.Update(context.TODO(), current); err != nil {
-			return false, fmt.Errorf("Failed to update deployment %v: %v", node.name(), err)
+			return true, fmt.Errorf("Failed to update deployment %v: %v", node.name(), err)
 		}
 	}
 	node.self = current

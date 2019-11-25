@@ -1,6 +1,8 @@
 package k8shandler
 
 import (
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -13,6 +15,14 @@ func newLabels(clusterName, selectorName string) map[string]string {
 		labels["node-name"] = selectorName
 	}
 	return labels
+}
+
+func newImage(image string) string {
+	log.Info(fmt.Sprintf("IMAGE %v", image))
+	if image == "" {
+		return defaultPgImage
+	}
+	return image
 }
 
 func newResourceRequirements(resRequirements corev1.ResourceRequirements) corev1.ResourceRequirements {

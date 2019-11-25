@@ -7,10 +7,10 @@ import (
 )
 
 // newContainer returns a container object for postgresql pod
-func newContainer(name string, secretName string, resourceRequirements corev1.ResourceRequirements, nodeID int, operation string) corev1.Container {
+func newContainer(name, secretName, image string, resourceRequirements corev1.ResourceRequirements, nodeID int, operation string) corev1.Container {
 	env := newPgEnvironment()
 	return corev1.Container{
-		Image:   defaultPgImage,
+		Image:   image,
 		Name:    name,
 		Command: []string{defaultCntCommand},
 		Ports: []corev1.ContainerPort{{

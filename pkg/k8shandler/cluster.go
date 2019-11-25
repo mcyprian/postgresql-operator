@@ -1,8 +1,12 @@
 package k8shandler
 
 import (
+	"context"
 	"fmt"
 	"sort"
+
+	appsv1 "k8s.io/api/apps/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	postgresqlv1 "github.com/mcyprian/postgresql-operator/pkg/apis/postgresql/v1"
 )
@@ -31,12 +35,17 @@ func (request *PostgreSQLRequest) CreateOrUpdateCluster() (bool, error) {
 	if nodes == nil {
 		nodes = make(map[string]Node)
 	}
+	getNodes(request) // search for lost references of nodes in the cluster
+
 	if request.cluster.Status.Nodes == nil {
 		request.cluster.Status.Nodes = make(map[string]postgresqlv1.PostgreSQLNodeStatus)
 	}
 	if primaryNode == nil {
-		if err := createPrimaryNode(request); err != nil {
-			return false, err
+		primaryNode, err = getPrimaryNode()
+		if err != nil {
+			if err := createPrimaryNode(request); err != nil {
+				return false, err
+			}
 		}
 	}
 	log.Info("Running create or update for primary service")
@@ -117,6 +126,57 @@ func getHighestPriority(nodeMap map[string]postgresqlv1.PostgreSQLNode) (string,
 	return highestName, &node, nil
 }
 
+// getNodes scans the cluster and adds all existing nodes to the nodes map
+func getNodes(request *PostgreSQLRequest) {
+
+	listOpts := client.MatchingLabels(newLabels(request.cluster.Name, ""))
+	deploymentList := &appsv1.DeploymentList{}
+	err := request.client.List(context.TODO(), listOpts, deploymentList)
+	if err != nil {
+		log.Error(err, fmt.Sprintf("Failed to retrieve list of deployments for cluster %v", request.cluster.Name))
+	}
+	for _, deployment := range deploymentList.Items {
+		_, ok := nodes[deployment.ObjectMeta.Name]
+		if !ok {
+			repmgrPassword, err := getRepmgrPassword(request)
+			if err != nil {
+				log.Error(err, "Failed to retrieve Repmgr password.")
+				return
+			}
+			log.Info(fmt.Sprintf("Attaching existing deployment: %v", deployment.ObjectMeta.Name))
+			nodes[deployment.ObjectMeta.Name] = attachDeploymentNode(request, deployment.ObjectMeta.Name, &deployment, repmgrPassword)
+		}
+	}
+}
+
+// getPrimaryNode searches for primary node in nodes map
+func getPrimaryNode() (Node, error) {
+	for name, node := range nodes {
+		status := node.status()
+		log.Info(fmt.Sprintf("Node %v role %v.", name, status.Role))
+		if status.Role == postgresqlv1.PostgreSQLNodeRolePrimary {
+			log.Info(fmt.Sprintf("Lost primary node %v discovered.", name))
+			return node, nil
+		}
+	}
+	return nil, fmt.Errorf("Primary node not found in the cluster.")
+}
+
+// getRepmgrPassword retrieves Repmgr password from the secret
+func getRepmgrPassword(request *PostgreSQLRequest) (string, error) {
+	secretData, err := extractSecret(request.cluster.Name, request.cluster.Namespace, request.client)
+	if err != nil {
+		log.Error(err, fmt.Sprintf("Failed to extract secret %v", request.cluster.Name))
+		return "", err
+	}
+	repmgrPassword, ok := secretData["repmgr-password"]
+	if !ok {
+		log.Error(err, fmt.Sprintf("Repmgr password not found in secret %v", request.cluster.Name))
+		return "", err
+	}
+	return string(repmgrPassword), nil
+}
+
 // createNode creates a new node, asigns an id to it and adds it to the nodes map
 func createNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.PostgreSQLNode, operation string) (Node, error) {
 	var id = -1
@@ -134,17 +194,12 @@ func createNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.
 		idSequence++
 		id = idSequence
 	}
-	secretData, err := extractSecret(request.cluster.Name, request.cluster.Namespace, request.client)
+	repmgrPassword, err := getRepmgrPassword(request)
 	if err != nil {
-		log.Error(err, fmt.Sprintf("Failed to extract secret %v", request.cluster.Name))
 		return nil, err
 	}
-	repmgrPassword, ok := secretData["repmgr-password"]
-	if !ok {
-		log.Error(err, fmt.Sprintf("Repmgr password not found in secret %v", request.cluster.Name))
-		return nil, err
-	}
-	node := newDeploymentNode(request, name, specNode, id, string(repmgrPassword), operation)
+
+	node := newDeploymentNode(request, name, specNode, id, repmgrPassword, operation)
 	if err := node.create(request); err != nil {
 		return nil, err
 	}
@@ -153,7 +208,6 @@ func createNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.
 }
 
 // createPrimaryNode creates primary node if it doesn't exists
-// TODO handle lost primary reference
 func createPrimaryNode(request *PostgreSQLRequest) error {
 	name, specNode, err := getHighestPriority(request.cluster.Spec.Nodes)
 	log.Info(fmt.Sprintf("Creating new primary node %v", name))
