@@ -6,34 +6,44 @@ spec:
   managementState: managed
   nodes:
     node-one:
-      image: "mcyprian/postgresql-10-fedora29"
+      image: mcyprian/postgresql-10-fedora29
       priority: 100
       resources:
         limits:
-          memory: 1Gi
+          memory: 500Mi
+          cpu: 200m
         requests:
-          memory: 512Mi
+          memory: 256Mi
+          cpu: 100m
       storage:
         storageClassName: local-storage
         size: 256Mi
     node-two:
-      image: "mcyprian/postgresql-10-fedora29"
+      image: mcyprian/postgresql-10-fedora29
       priority: 60
       resources:
         limits:
-          memory: 1Gi
+          memory: 500Mi
+          cpu: 200m
         requests:
-          memory: 512Mi
-      storage:
-        storageClassName: local-storage
-        size: 256Mi
-    node-one-clone:
-      priority: 30
+          memory: 256Mi
+          cpu: 100m
       storage:
         storageClassName: local-storage
         size: 256Mi
     node-extra:
+      image: mcyprian/postgresql-10-fedora29
       priority: 0
+      resources:
+        limits:
+          memory: 500Mi
+          cpu: 200m
+        requests:
+          memory: 256Mi
+          cpu: 100m
+      storage:
+        storageClassName: local-storage
+        size: 256Mi
       storage:
         storageClassName: local-storage
         size: 256Mi
