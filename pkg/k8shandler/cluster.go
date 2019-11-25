@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -48,10 +49,10 @@ func (request *PostgreSQLRequest) CreateOrUpdateCluster() (bool, error) {
 			}
 		}
 	}
-	log.Info("Running create or update for primary service")
+	logrus.Info("Running create or update for primary service")
 	err = request.CreateOrUpdateService("postgresql-primary", primaryNode.name())
 	if err != nil {
-		log.Error(err, "Failed to create or update primary Service")
+		logrus.Errorf("Failed to create or update primary service: %v", err)
 		return true, err
 	}
 	clusterStatus := request.cluster.Status.DeepCopy()
@@ -63,12 +64,12 @@ func (request *PostgreSQLRequest) CreateOrUpdateCluster() (bool, error) {
 				status = node.status()
 				clusterStatus.Nodes[node.name()] = status
 				if status.Role == postgresqlv1.PostgreSQLNodeRolePrimary && name != primaryNode.name() {
-					log.Info(fmt.Sprintf("Failover detected: the new primary node is %v", name))
+					logrus.Infof("Failover detected: the new primary node is %v", name)
 					primaryNode = node
-					log.Info(fmt.Sprintf("Updating primary service selector to %v", primaryNode.name()))
+					logrus.Debugf("Updating primary service selector to %v", primaryNode.name())
 					err = request.CreateOrUpdateService("postgresql-primary", primaryNode.name())
 					if err != nil {
-						log.Error(err, "Failed to create or update primary Service")
+						logrus.Errorf("Failed to create or update primary service: %v", err)
 						return true, err
 					}
 				}
@@ -80,20 +81,20 @@ func (request *PostgreSQLRequest) CreateOrUpdateCluster() (bool, error) {
 		}
 		requeue, err = createOrUpdateNode(request, name, &specNode)
 		if err != nil {
-			log.Error(err, "Non-critical issue")
+			logrus.Errorf("Non-critical issue: %v", err)
 			repmgrClusterUp = false
 		}
 	}
 	if err := deleteExtraNodes(request, clusterStatus); err != nil {
-		log.Error(err, "Non-critical issue")
+		logrus.Errorf("Non-critical issue: %v", err)
 	}
-	log.Info(fmt.Sprintf("Nodes after update: %v", nodes))
+	logrus.Debugf("Nodes after update: %v", nodes)
 
 	if !repmgrClusterUp {
 		return true, nil
 	}
 	if err := UpdateClusterStatus(request, clusterStatus); err != nil {
-		log.Error(err, "Non-critical issue")
+		logrus.Errorf("Non-critical issue: %v", err)
 	}
 
 	return requeue, nil
@@ -133,17 +134,17 @@ func getNodes(request *PostgreSQLRequest) {
 	deploymentList := &appsv1.DeploymentList{}
 	err := request.client.List(context.TODO(), listOpts, deploymentList)
 	if err != nil {
-		log.Error(err, fmt.Sprintf("Failed to retrieve list of deployments for cluster %v", request.cluster.Name))
+		logrus.Errorf("Failed to retrieve list of deployments for cluster %v: %v", request.cluster.Name, err)
 	}
 	for _, deployment := range deploymentList.Items {
 		_, ok := nodes[deployment.ObjectMeta.Name]
 		if !ok {
 			repmgrPassword, err := getRepmgrPassword(request)
 			if err != nil {
-				log.Error(err, "Failed to retrieve Repmgr password.")
+				logrus.Errorf("Failed to retrieve Repmgr password: %v", err)
 				return
 			}
-			log.Info(fmt.Sprintf("Attaching existing deployment: %v", deployment.ObjectMeta.Name))
+			logrus.Infof("Attaching existing deployment: %v", deployment.ObjectMeta.Name)
 			nodes[deployment.ObjectMeta.Name] = attachDeploymentNode(request, deployment.ObjectMeta.Name, &deployment, repmgrPassword)
 		}
 	}
@@ -153,9 +154,8 @@ func getNodes(request *PostgreSQLRequest) {
 func getPrimaryNode() (Node, error) {
 	for name, node := range nodes {
 		status := node.status()
-		log.Info(fmt.Sprintf("Node %v role %v.", name, status.Role))
 		if status.Role == postgresqlv1.PostgreSQLNodeRolePrimary {
-			log.Info(fmt.Sprintf("Lost primary node %v discovered.", name))
+			logrus.Infof("Lost primary node %v discovered.", name)
 			return node, nil
 		}
 	}
@@ -166,12 +166,12 @@ func getPrimaryNode() (Node, error) {
 func getRepmgrPassword(request *PostgreSQLRequest) (string, error) {
 	secretData, err := extractSecret(request.cluster.Name, request.cluster.Namespace, request.client)
 	if err != nil {
-		log.Error(err, fmt.Sprintf("Failed to extract secret %v", request.cluster.Name))
+		logrus.Errorf("Failed to extract secret %v: %v", request.cluster.Name, err)
 		return "", err
 	}
 	repmgrPassword, ok := secretData["repmgr-password"]
 	if !ok {
-		log.Error(err, fmt.Sprintf("Repmgr password not found in secret %v", request.cluster.Name))
+		logrus.Errorf("Repmgr password not found in secret %v: %v", request.cluster.Name, err)
 		return "", err
 	}
 	return string(repmgrPassword), nil
@@ -210,7 +210,7 @@ func createNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.
 // createPrimaryNode creates primary node if it doesn't exists
 func createPrimaryNode(request *PostgreSQLRequest) error {
 	name, specNode, err := getHighestPriority(request.cluster.Spec.Nodes)
-	log.Info(fmt.Sprintf("Creating new primary node %v", name))
+	logrus.Infof("Creating new primary node %v", name)
 	if err != nil {
 		return fmt.Errorf("Nodes spec is empty, cannot choose master node")
 	}
@@ -249,7 +249,7 @@ func deleteExtraNodes(request *PostgreSQLRequest, clusterStatus *postgresqlv1.Po
 	for name, deployedNode := range nodes {
 		_, ok := request.cluster.Spec.Nodes[name]
 		if !ok {
-			log.Info(fmt.Sprintf("Deleting node %v", name))
+			logrus.Infof("Deleting node %v", name)
 			if err := deployedNode.delete(request); err != nil {
 				return err
 			}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,10 +38,10 @@ func newSecret(request *PostgreSQLRequest, name string, passwords *pgPasswords) 
 func (request *PostgreSQLRequest) CreateOrUpdateSecret() error {
 	_, err := extractSecret(request.cluster.Name, request.cluster.Namespace, request.client)
 	if errors.IsNotFound(err) {
-		log.Info(fmt.Sprintf("Generating secret for cluster %v", request.cluster.Name))
+		logrus.Infof("Generating secret for cluster %v", request.cluster.Name)
 		passwords, err := newPgPasswords()
 		if err != nil {
-			log.Error(err, "Failed to generate passwords")
+			logrus.Errorf("Failed to generate passwords: %v", err)
 			return err
 		}
 		secret := newSecret(request, request.cluster.Name, passwords)
@@ -68,9 +69,9 @@ func extractSecret(secretName, namespace string, client client.Client) (map[stri
 
 	if err := client.Get(context.TODO(), types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace}, secret); err != nil {
 		if errors.IsNotFound(err) {
-			log.Error(err, fmt.Sprintf("Failed to find secret %v", secret.Name))
+			logrus.Errorf("Failed to find secret %v: %v", secret.Name, err)
 		} else {
-			log.Error(err, fmt.Sprintf("Failed to read secret %v", secret.Name))
+			logrus.Errorf("Failed to read secret %v: %v", secret.Name, err)
 		}
 		return nil, err
 	}

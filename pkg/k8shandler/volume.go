@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	postgresqlv1 "github.com/mcyprian/postgresql-operator/pkg/apis/postgresql/v1"
+	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 
@@ -36,7 +37,7 @@ func newVolume(request *PostgreSQLRequest, name string, specVol *postgresqlv1.Po
 
 		err := createPersistentVolumeClaim(request, volSpec, claimName)
 		if err != nil {
-			log.Error(err, "Unable to create PersistentVolumeClaim")
+			logrus.Errorf("Unable to create PersistentVolumeClaim: %v", err)
 		}
 
 	case specVol.Size != nil:

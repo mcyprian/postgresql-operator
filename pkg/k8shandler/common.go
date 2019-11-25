@@ -1,8 +1,6 @@
 package k8shandler
 
 import (
-	"fmt"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -18,7 +16,6 @@ func newLabels(clusterName, selectorName string) map[string]string {
 }
 
 func newImage(image string) string {
-	log.Info(fmt.Sprintf("IMAGE %v", image))
 	if image == "" {
 		return defaultPgImage
 	}

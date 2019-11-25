@@ -1,10 +1,10 @@
 module github.com/mcyprian/postgresql-operator
 
 require (
-	github.com/NYTimes/gziphandler v1.0.1 // indirect
 	github.com/lib/pq v1.2.0
 	github.com/operator-framework/operator-sdk v0.10.1-0.20190820174346-abac23c897b8
 	github.com/sethvargo/go-password v0.1.2
+	github.com/sirupsen/logrus v1.4.1
 	github.com/spf13/pflag v1.0.3
 	k8s.io/api v0.0.0-20190612125737-db0771252981
 	k8s.io/apimachinery v0.0.0-20190612125636-6a5db36e93ad

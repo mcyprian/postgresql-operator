@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	postgresqlv1 "github.com/mcyprian/postgresql-operator/pkg/apis/postgresql/v1"
+	"github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -33,7 +34,7 @@ func attachDeploymentNode(request *PostgreSQLRequest, name string, deployment *a
 	}
 	node.db.initialize()
 	if err := node.db.err(); err != nil {
-		fmt.Errorf("Failed to initialize repmgr database connection %v", err)
+		logrus.Errorf("Failed to initialize repmgr database connection %v", err)
 	}
 	return node
 }
@@ -66,30 +67,28 @@ func (node *deploymentNode) update(request *PostgreSQLRequest, specNode *postgre
 	current := node.self.DeepCopy()
 	if err := request.client.Get(context.TODO(), types.NamespacedName{Name: node.name(), Namespace: request.cluster.Namespace}, current); err != nil {
 		if errors.IsNotFound(err) {
-			log.Info(fmt.Sprintf("CREATING LOST DEPLOYMENT %v", node.self.ObjectMeta.Name))
+			logrus.Infof("CREATING LOST DEPLOYMENT %v", node.self.ObjectMeta.Name)
 			nodeInfo := writableDB.getNodeInfo(node.name())
 			node.self = newDeployment(request, node.name(), specNode, nodeInfo.id, NodeRejoin)
 			if err := request.client.Create(context.TODO(), node.self); err != nil {
 				return true, fmt.Errorf("Failed to create node resource %v", err)
 			}
 			return false, nil
-		} else {
-			return false, fmt.Errorf("Failed to get deployment %v: %v", node.name(), err)
 		}
 	}
 	current.Spec.Template.Spec.Containers[0].Resources = newResourceRequirements(specNode.Resources)
 	current.Spec.Template.Spec.Volumes[0] = newVolume(request, node.name(), &specNode.Storage)
-	current.Spec.Template.Spec.Containers[0].Image = specNode.Image
+	current.Spec.Template.Spec.Containers[0].Image = newImage(specNode.Image)
 
 	if node.isReady() {
 		info := node.db.getNodeInfo(node.name())
 		if err := node.db.err(); err != nil {
-			log.Error(err, fmt.Sprintf("Failed to query role of node %v", node.name()))
+			logrus.Errorf("Failed to query role of node %v: %v", node.name(), err)
 		} else {
 			if info.priority != specNode.Priority {
 				writableDB.updateNodePriority(node.name(), specNode.Priority)
 				if err := node.db.err(); err != nil {
-					log.Error(err, fmt.Sprintf("Failed to update priority of node %v", node.name()))
+					logrus.Errorf("Failed to update priority of node %v: %v", node.name(), err)
 				}
 			}
 		}
@@ -122,7 +121,7 @@ func (node *deploymentNode) status() postgresqlv1.PostgreSQLNodeStatus {
 		Priority:       info.priority,
 	}
 	if err := node.db.err(); err != nil {
-		log.Error(err, "Failed to get node info")
+		logrus.Errorf("Failed to get node info: %v", err)
 	}
 	return status
 }
