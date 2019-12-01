@@ -45,7 +45,7 @@ func (request *PostgreSQLRequest) CreateOrUpdateCluster() (bool, error) {
 		primaryNode, err = getPrimaryNode()
 		if err != nil {
 			if err := createPrimaryNode(request); err != nil {
-				return false, err
+				return true, err
 			}
 		}
 	}
@@ -53,7 +53,7 @@ func (request *PostgreSQLRequest) CreateOrUpdateCluster() (bool, error) {
 	err = request.CreateOrUpdateService("postgresql-primary", primaryNode.name())
 	if err != nil {
 		logrus.Errorf("Failed to create or update primary service: %v", err)
-		return true, err
+		requeue = true
 	}
 	clusterStatus := request.cluster.Status.DeepCopy()
 	// Loop over all nodes listed in the spec
@@ -70,7 +70,7 @@ func (request *PostgreSQLRequest) CreateOrUpdateCluster() (bool, error) {
 					err = request.CreateOrUpdateService("postgresql-primary", primaryNode.name())
 					if err != nil {
 						logrus.Errorf("Failed to create or update primary service: %v", err)
-						return true, err
+						requeue = true
 					}
 				}
 			} else {
@@ -90,11 +90,12 @@ func (request *PostgreSQLRequest) CreateOrUpdateCluster() (bool, error) {
 	}
 	logrus.Debugf("Nodes after update: %v", nodes)
 
-	if !repmgrClusterUp {
-		return true, nil
-	}
 	if err := UpdateClusterStatus(request, clusterStatus); err != nil {
 		logrus.Errorf("Non-critical issue: %v", err)
+		requeue = true
+	}
+	if !repmgrClusterUp {
+		requeue = true
 	}
 
 	return requeue, nil

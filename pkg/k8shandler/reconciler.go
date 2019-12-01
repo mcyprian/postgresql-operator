@@ -22,28 +22,29 @@ func NewPostgreSQLRequest(client client.Client, cluster *postgresqlv1.PostgreSQL
 // Reconcile creates or updates all the resources managed by the operator
 func (request *PostgreSQLRequest) Reconcile() (bool, error) {
 	var err error
+	requeue := false
 	logrus.Info("Reconciling PostgreSQL")
 
 	logrus.Info("Running create or update for secret")
 	if err := request.CreateOrUpdateSecret(); err != nil {
 		logrus.Errorf("Failed to create or update secret: %v", err)
-		return true, err
+		requeue = true
 	}
 
 	logrus.Info("Running create or update for read-only service")
 	if err := request.CreateOrUpdateService("postgresql-ro", ""); err != nil {
-		logrus.Errorf("Failed to create or update read-only secret: %v", err)
-		return true, err
+		logrus.Errorf("Failed to create or update read-only service: %v", err)
+		requeue = true
 	}
 
 	logrus.Info("Running create or update for cluster")
-	requeue, err := request.CreateOrUpdateCluster()
+	requeue, err = request.CreateOrUpdateCluster()
 	if err != nil {
 		logrus.Errorf("Failed to create or update cluster: %v", err)
-		return true, err
-	} else if requeue {
+	}
+	if requeue {
 		logrus.Info("Request requeued after create or update of cluster")
-		return true, nil
+		return true, err
 	}
 	return false, nil
 }

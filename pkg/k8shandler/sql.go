@@ -39,7 +39,7 @@ func newRepmgrDatabase(host string, password string) *database {
 }
 
 func (info *databaseInfo) connectionString() string {
-	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s connect_timeout=2",
 		info.host, info.port, info.user, info.password, info.dbname, info.sslmode)
 }
 
