@@ -22,15 +22,10 @@ jobs:
     - go mod download
     - ./.travis/prepare-environment.sh
     - make test
-#  - stage: push to docker.io
-#    script:
-#    - go get -u github.com/operator-framework/operator-sdk/commands/operator-sdk
-#    - make
+    - make
 stages:
-    #- lint
+  - lint
   - build and test
-#  - name: push to docker.io
-#    if: branch = master AND type != pull_request
 after_success:
 - echo 'Build succeeded'
 after_failure:
