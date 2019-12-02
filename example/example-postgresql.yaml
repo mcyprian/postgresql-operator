@@ -1,0 +1,32 @@
+apiVersion: postgresql.openshift.io/v1
+kind: PostgreSQL
+metadata:
+  name: example-postgresql
+spec:
+  managementState: managed
+  nodes:
+    node-one:
+      image: mcyprian/postgresql-10-fedora29:1.0
+      priority: 100
+      resources:
+        limits:
+          memory: 500Mi
+          cpu: 200m
+        requests:
+          memory: 256Mi
+          cpu: 100m
+      storage:
+        storageClassName: local-storage
+        size: 256Mi
+    node-two:
+      image: mcyprian/postgresql-10-fedora29:1.0
+      priority: 80
+      storage:
+        storageClassName: local-storage
+        size: 256Mi
+    node-three:
+      image: mcyprian/postgresql-10-fedora29:1.0
+      priority: 60
+      storage:
+        storageClassName: local-storage
+        size: 256Mi
