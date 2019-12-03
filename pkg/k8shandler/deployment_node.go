@@ -67,8 +67,11 @@ func (node *deploymentNode) update(request *PostgreSQLRequest, specNode *postgre
 	current := node.self.DeepCopy()
 	if err := request.client.Get(context.TODO(), types.NamespacedName{Name: node.name(), Namespace: request.cluster.Namespace}, current); err != nil {
 		if errors.IsNotFound(err) {
-			logrus.Infof("CREATING LOST DEPLOYMENT %v", node.self.ObjectMeta.Name)
 			nodeInfo := writableDB.getNodeInfo(node.name())
+			if err := node.db.err(); err != nil || nodeInfo.id < 0 {
+				return true, fmt.Errorf("Failed to retrieve node id %v", err)
+			}
+			logrus.Infof("Creating lost deployment %v", node.self.ObjectMeta.Name)
 			node.self = newDeployment(request, node.name(), specNode, nodeInfo.id, NodeRejoin)
 			if err := request.client.Create(context.TODO(), node.self); err != nil {
 				return true, fmt.Errorf("Failed to create node resource %v", err)

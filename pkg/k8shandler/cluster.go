@@ -66,7 +66,7 @@ func (request *PostgreSQLRequest) CreateOrUpdateCluster() (bool, error) {
 				if status.Role == postgresqlv1.PostgreSQLNodeRolePrimary && name != primaryNode.name() {
 					logrus.Infof("Failover detected: the new primary node is %v", name)
 					primaryNode = node
-					logrus.Debugf("Updating primary service selector to %v", primaryNode.name())
+					logrus.Infof("Updating primary service selector to %v", primaryNode.name())
 					err = request.CreateOrUpdateService("postgresql-primary", primaryNode.name())
 					if err != nil {
 						logrus.Errorf("Failed to create or update primary service: %v", err)
@@ -88,7 +88,7 @@ func (request *PostgreSQLRequest) CreateOrUpdateCluster() (bool, error) {
 	if err := deleteExtraNodes(request, clusterStatus); err != nil {
 		logrus.Errorf("Non-critical issue: %v", err)
 	}
-	logrus.Debugf("Nodes after update: %v", nodes)
+	logrus.Infof("Nodes after update: %v", nodes)
 
 	if err := UpdateClusterStatus(request, clusterStatus); err != nil {
 		logrus.Errorf("Non-critical issue: %v", err)
@@ -185,7 +185,7 @@ func createNode(request *PostgreSQLRequest, name string, specNode *postgresqlv1.
 	if primaryNode != nil {
 		db := primaryNode.dbClient()
 		info := db.getNodeInfo(name)
-		if err := db.err(); err == nil {
+		if err := db.err(); err == nil && info.id > 0 {
 			id = info.id
 			operation = NodeRejoin
 		}
