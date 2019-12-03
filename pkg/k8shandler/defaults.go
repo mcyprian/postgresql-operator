@@ -3,7 +3,7 @@ package k8shandler
 const (
 	postgresqlPort = 5432
 
-	defaultPgImage            = "mcyprian/postgresql-10-fedora29"
+	defaultPgImage            = "mcyprian/postgresql-10-fedora29:1.0"
 	defaultPgUser             = "user"
 	defaultPgDatabase         = "db"
 	defaultCntCommand         = "run-repmgr-replica"
